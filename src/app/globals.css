@@ -1,26 +1,96 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  --color-paper: #FBFAF7;
+  --color-desk: #F2F0E9;
+  --color-sheet: #FFFFFF;
+  --color-ink: #1C2536;
+  --color-ink-soft: #5A6270;
+  --color-line: #E5E1D6;
+  --color-line-strong: #CFCCC2;
+  --color-redpen: #C2402A;
+  --color-redpen-wash: #FAE9E4;
+  --color-pencil: #8A601E;
+  --color-pencil-wash: #F6ECDC;
+  --color-greenink: #1F6B4A;
+  --color-greenink-wash: #E7F0E8;
+  --color-cite: #2457C5;
+  --color-cite-wash: #EAF0FC;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  --font-hand: var(--font-caveat), cursive;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
 }
+
+:focus-visible {
+  outline: 2px solid var(--color-cite);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Highlighted proofed text inside the reviewed document */
+mark.proof {
+  background: transparent;
+  color: inherit;
+  border-radius: 2px;
+  cursor: pointer;
+}
+mark.proof[data-sev="high"] { background: var(--color-redpen-wash); box-shadow: inset 0 -2px 0 0 rgb(194 64 42 / 0.55); }
+mark.proof[data-sev="medium"] { background: var(--color-pencil-wash); box-shadow: inset 0 -2px 0 0 rgb(138 96 30 / 0.5); }
+mark.proof[data-sev="low"] { background: var(--color-cite-wash); box-shadow: inset 0 -2px 0 0 rgb(36 87 197 / 0.4); }
+mark.proof[data-status="accepted"],
+mark.proof[data-status="edited"] {
+  background: var(--color-greenink-wash);
+  box-shadow: inset 0 -2px 0 0 rgb(31 107 74 / 0.45);
+}
+mark.proof[data-status="dismissed"] {
+  background: linear-gradient(var(--color-line) 55%, transparent 55%);
+  box-shadow: none;
+  opacity: 0.75;
+}
+
+/* Native dialog theming */
+dialog.bp {
+  border: 1px solid var(--color-line-strong);
+  border-radius: 10px;
+  max-width: min(680px, calc(100vw - 2rem));
+  width: 100%;
+  padding: 0;
+  background: var(--color-paper);
+  color: var(--color-ink);
+  box-shadow: 0 24px 60px rgb(28 37 54 / 0.18);
+}
+dialog.bp::backdrop {
+  background: rgb(28 37 54 / 0.42);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Stamp */
+.stamp {
+  font-family: var(--font-bricolage);
+  letter-spacing: 0.06em;
+  border: 3px double currentColor;
+  border-radius: 6px;
+  padding: 0.35rem 1rem;
+  text-transform: uppercase;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Hand-tuned scrollbar for the proofing tray */
+.thin-scroll { scrollbar-width: thin; scrollbar-color: var(--color-line-strong) transparent; }
