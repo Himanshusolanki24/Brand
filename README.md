@@ -1,36 +1,39 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BrandProof — frontend (Round 2 build)
 
-## Getting Started
+**Proof your brand before the world does.** Frontend demo for the Inkloom AI hackathon:
+a brand-governance workspace where trained-model-adjacent flags always cite the exact
+guideline clause, suggested fixes keep the writer's intent, and nothing ever ships
+without a named human signature.
 
-First, run the development server:
+## Run it
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev        # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open **http://localhost:3000** → "Open the demo workspace" (or sign in with any
+email — the demo code is `0007`). The workspace ships pre-loaded with a fictional
+brand, **Meridian Coffee**, and an end-to-end flow:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Reviews** — open *April email — cold brew launch*: flagged sentences are marked
+   in place; the proofing tray on the right holds citation-anchored issue cards.
+   Accept, Edit (your own words), or Dismiss — dismissal requires a written reason.
+2. **Send for approval** once every flag is decided → the piece lands on the
+   **Approval manifest** → sign it (type the approver's name) or return it with a note.
+3. **Intake** — paste any draft and run the demo analyzer (rules check superlatives,
+   unanchored numbers, physiology claims, competitor names, absolutes, eco terms).
+4. **Knowledge base** — guidelines, fact sheet, terminology, assets, plus the
+   **Guideline Clarity Radar** and its draft amendments (ratify one and the
+   rulebook version bumps).
+5. **How this review works** — the AI-disclosure page: what's automated, what's
+   simulated, and the four things the AI is never allowed to do.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Stack
 
-## Learn More
+Next.js 15 (App Router) · React 19 · TypeScript strict · Tailwind CSS v4 ·
+lucide-react icons · no UI kit beyond a small native-HTML set (`<dialog>`, semantic
+buttons). State is a typed reducer in `src/lib/store.tsx` over seed data in
+`src/lib/seed.ts` — the interface is the contract a real FastAPI backend plugs into.
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Demo seeds reset on reload; nothing is sent anywhere.
