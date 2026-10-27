@@ -41,7 +41,7 @@ export default function ReviewsPage() {
           </p>
         </div>
         <Link
-          href="/app/intake"
+          href="/app/reviews/new"
           className="inline-flex h-9 items-center rounded-md bg-ink px-3 text-[13px] font-medium text-paper hover:bg-[#2A3A59]"
         >
           Proof a new piece
