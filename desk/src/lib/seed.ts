@@ -9,9 +9,18 @@ import type {
   ProofFact,
   ProofTerm,
   Review,
+  TrustEdge,
+  TrustGraphResponse,
+  TrustNode,
 } from "./types";
 
 export const BRAND = "Meridian Coffee";
+/**
+ * The sample desk's dedicated approver — mirroring the review service's
+ * assignment rule: a dedicated approver signs, admins only fall back. Demo
+ * approvals never show anyone who isn't a named fixture in this file.
+ */
+export const DEMO_APPROVER = "Maya Okafor";
 export const GUIDELINE_VERSION = "v2.3";
 
 export const GUIDELINES: GuidelineSection[] = [
@@ -154,6 +163,9 @@ const rv1Issues: Issue[] = [
     rationale:
       "Keeps the launch excitement; states a claim you can stand behind every day, not just launch week.",
     status: "open",
+    evidenceIds: [],
+    verification: null,
+    agent: "policy_checks",
   },
   {
     id: "rv1-i2",
@@ -174,6 +186,10 @@ const rv1Issues: Issue[] = [
     rationale:
       "Keeps the smoothness story and drops the figure you cannot defend from anyone's reply-all chain.",
     status: "open",
+    // A number the sheet doesn't hold: unverified, and unverified is not false.
+    evidenceIds: [],
+    verification: null,
+    agent: "policy_checks",
   },
   {
     id: "rv1-i3",
@@ -194,6 +210,9 @@ const rv1Issues: Issue[] = [
     rationale:
       "Moves the claim from physiology to taste — same intent, provable, and honestly a better sentence.",
     status: "open",
+    evidenceIds: [],
+    verification: null,
+    agent: "policy_checks",
   },
   {
     id: "rv1-i4",
@@ -214,6 +233,9 @@ const rv1Issues: Issue[] = [
     rationale:
       "Anchors the offer honestly and without ranking it; the discount itself is fine.",
     status: "open",
+    evidenceIds: [],
+    verification: null,
+    agent: "policy_checks",
   },
   {
     id: "rv1-i5",
@@ -234,6 +256,9 @@ const rv1Issues: Issue[] = [
     rationale:
       "Anchors to fact F4 (average roast-to-ship 2.1 days) instead of promising the sky.",
     status: "open",
+    evidenceIds: [],
+    verification: null,
+    agent: "policy_checks",
   },
   {
     id: "rv1-i6",
@@ -249,6 +274,9 @@ const rv1Issues: Issue[] = [
     rationale:
       "One idea per line, and the roast date does the freshness job a stat was doing.",
     status: "open",
+    evidenceIds: [],
+    verification: null,
+    agent: "advisory",
   },
 ];
 
@@ -273,6 +301,9 @@ const rv2Issues: Issue[] = [
     status: "dismissed",
     reason:
       "Dismissed with reason: a signed third-party ranking (Coffee Compass 2025) was filed into the fact sheet this morning, which satisfies §4.1.",
+    evidenceIds: [],
+    verification: null,
+    agent: "policy_checks",
   },
   {
     id: "rv2-i2",
@@ -292,6 +323,11 @@ const rv2Issues: Issue[] = [
     suggested: "sourced from two smallholder farms we know by name",
     rationale: "Matches the fact sheet and keeps the intimacy that made the line work.",
     status: "accepted",
+    // The one genuinely contradicted finding: fact F3 says two partners, the
+    // copy says one. Contradicted by evidence, not merely unverified.
+    evidenceIds: ["f3"],
+    verification: "contradicted",
+    agent: "policy_checks",
   },
 ];
 
@@ -311,6 +347,9 @@ const rv3Issues: Issue[] = [
     status: "edited",
     replacement: "Something cold is waiting in your cart",
     reason: "Edited during review: shortened by hand.",
+    evidenceIds: [],
+    verification: null,
+    agent: "policy_checks",
   },
   {
     id: "rv3-i2",
@@ -325,6 +364,9 @@ const rv3Issues: Issue[] = [
     suggested: "A heads-up: your loyalty balance has 14 days left",
     rationale: "Says the real deadline instead of the scammy vibe.",
     status: "accepted",
+    evidenceIds: [],
+    verification: null,
+    agent: "policy_checks",
   },
 ];
 
@@ -356,6 +398,7 @@ export const REVIEWS: Review[] = [
       },
     ],
     issues: rv1Issues,
+    policyVersion: GUIDELINE_VERSION,
   },
   {
     id: "rv2",
@@ -376,6 +419,7 @@ export const REVIEWS: Review[] = [
       },
     ],
     issues: rv2Issues,
+    policyVersion: GUIDELINE_VERSION,
   },
   {
     id: "rv3",
@@ -389,6 +433,7 @@ export const REVIEWS: Review[] = [
       { id: "rv3-s2", heading: "Push 2 — day 10", body: "Loyalty points expire soon! Quick browse and your favorite is back in season." },
     ],
     issues: rv3Issues,
+    policyVersion: GUIDELINE_VERSION,
   },
   {
     id: "rv4",
@@ -405,6 +450,7 @@ export const REVIEWS: Review[] = [
       },
     ],
     issues: [],
+    policyVersion: GUIDELINE_VERSION,
   },
 ];
 
@@ -453,4 +499,73 @@ export function seedState(): DemoState {
     amendments: AMENDMENTS,
     radar: RADAR,
   };
+}
+
+/**
+ * Sample Trust Graph, derived from the sample desk's own fixtures — the same
+ * shape GET /trust returns live. Left empty in the product lane: signed-in
+ * desks read their own graph from the review service.
+ */
+export function demoTrustGraph(): TrustGraphResponse {
+  const nodes: TrustNode[] = [];
+  const edges: TrustEdge[] = [];
+  const node = (n: TrustNode) => {
+    if (!nodes.some((x) => x.id === n.id)) nodes.push(n);
+  };
+
+  for (const r of REVIEWS) {
+    node({ id: `review:${r.id}`, kind: "review", label: r.title });
+    for (const i of r.issues) {
+      node({ id: `issue:${i.id}`, kind: "issue", label: i.headline });
+      edges.push({ id: `te-${i.id}-hf`, src: `review:${r.id}`, dst: `issue:${i.id}`, rel: "has_finding" });
+      if (i.citation) {
+        node({
+          id: `rule:§${i.citation.clause}`,
+          kind: "rule",
+          label: `§${i.citation.clause} ${i.citation.sectionLabel}`,
+        });
+        edges.push({ id: `te-${i.id}-cites`, src: `issue:${i.id}`, dst: `rule:§${i.citation.clause}`, rel: "cites" });
+      }
+      for (const f of i.evidenceIds) {
+        const claim = FACTS.find((x) => x.id === f)?.claim ?? f;
+        node({ id: `evidence:${f}`, kind: "evidence", label: claim.slice(0, 90) });
+        edges.push({ id: `te-${i.id}-f${f}`, src: `issue:${i.id}`, dst: `evidence:${f}`, rel: "backed_by" });
+      }
+    }
+  }
+
+  // One decision node per approval state on record — signed or sent back.
+  for (const ap of APPROVALS) {
+    const stateLabel =
+      ap.state === "signed" ? "signed" : ap.state === "returned" ? "returned" : "waiting";
+    node({
+      id: `decision:${ap.reviewId}`,
+      kind: "decision",
+      label: `${stateLabel}: ${ap.note ?? "—"} (${ap.approver})`,
+    });
+    edges.push({
+      id: `te-${ap.id}-dec`,
+      src: `decision:${ap.reviewId}`,
+      dst: `review:${ap.reviewId}`,
+      rel: "decision_for",
+    });
+  }
+
+  // Last-8 audit trail, mirroring the service: edge-less activity nodes.
+  const audit: Array<[string, string, string]> = [
+    ["review.analyzed", "rv1", "Meridian checks"],
+    ["issue.dismissed", "rv2-i1", "Jonas Feld"],
+    ["issue.resolved", "rv2-i2", "Jonas Feld"],
+    ["approval.returned", "rv2", "Ravi Suri"],
+    ["issue.resolved", "rv3-i1", "Priya Raman"],
+    ["approval.signed", "rv3", "Maya Okafor"],
+    ["proposal.proposed", "amp1", "Meridian checks"],
+    ["proposal.proposed", "amp2", "Meridian checks"],
+  ];
+  for (const [action, subject, actor] of audit) {
+    const id = `audit:ae-${action}-${subject}`;
+    nodes.push({ id, kind: "audit", label: `${action} — ${subject}`, detail: actor });
+  }
+
+  return { nodes, edges };
 }

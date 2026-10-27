@@ -111,6 +111,12 @@ export function analyzeDraft(body: string): Issue[] {
       suggested: "",
       rationale: rule.rationale,
       status: "open",
+      // The demo runner retrieves no evidence from a knowledge base, so its
+      // findings are unverified — the UI must say "not verified", never
+      // "false". The real review service fills both fields from retrieval.
+      evidenceIds: [],
+      verification: null,
+      agent: "policy_checks",
     });
   }
 
@@ -133,6 +139,9 @@ export function analyzeDraft(body: string): Issue[] {
       suggested: "Split it into two thoughts.",
       rationale: "One idea per line reads calmer — and this one carries two ideas.",
       status: "open",
+      evidenceIds: [],
+      verification: null,
+      agent: "advisory",
     });
   }
 
@@ -152,6 +161,9 @@ export function analyzeDraft(body: string): Issue[] {
       suggested: "Ship it — after one human pass.",
       rationale: "A clean automated pass plus a single human check beats either one alone.",
       status: "open",
+      evidenceIds: [],
+      verification: null,
+      agent: "advisory",
     });
   }
 

@@ -2,12 +2,25 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
   useMemo,
   useReducer,
+  useRef,
+  useState,
   type ReactNode,
 } from "react";
-import { seedState } from "./seed";
+import { DEMO_APPROVER, seedState } from "./seed";
+import { analyzeDraft } from "./analyze";
+import {
+  api,
+  clearSession,
+  loadSession,
+  saveSession,
+  snapshotToState,
+  type Session,
+} from "./api";
 import type {
   DemoState,
   Issue,
@@ -19,13 +32,14 @@ export type DemoAction =
   | { type: "resolve"; reviewId: string; issueId: string; status: "accepted" | "edited"; replacement?: string }
   | { type: "dismiss"; reviewId: string; issueId: string; reason: string }
   | { type: "reopen"; reviewId: string; issueId: string }
-  | { type: "ready"; reviewId: string }
+  | { type: "ready"; reviewId: string; approver?: string }
   | { type: "sign"; entryId: string; by: string }
   | { type: "return"; entryId: string; note: string; by: string }
   | { type: "analyze"; review: Review }
   | { type: "analysisDone"; reviewId: string; issues: Issue[] }
   | { type: "ratify"; amendmentId: string }
-  | { type: "setRole"; role: Role };
+  | { type: "setRole"; role: Role }
+  | { type: "__hydrate"; patch: Partial<DemoState> };
 
 function mapIssue(
   state: DemoState,
@@ -41,6 +55,14 @@ function mapIssue(
         : { ...r, issues: r.issues.map((i) => (i.id === issueId ? fn(i) : i)) },
     ),
   };
+}
+
+function bumpVersion(version: string): string {
+  /** "v2.3" → "v2.4-draft" — mirrors the review service's version bump. */
+  const n = version.replace(/^v/, "");
+  const [major, minor] = n.split(".");
+  const next = Number(minor);
+  return Number.isFinite(next) ? `v${major}.${next + 1}-draft` : `${version}-draft`;
 }
 
 function reducer(state: DemoState, action: DemoAction): DemoState {
@@ -77,7 +99,11 @@ function reducer(state: DemoState, action: DemoAction): DemoState {
           {
             id: `apr-${action.reviewId}`,
             reviewId: action.reviewId,
-            approver: "Maya Okafor",
+            // Product mode: the review service assigns the approver and the
+            // desk re-hydrates — this value is never rendered there. Demo
+            // mode: the sample desk's dedicated approver (mirrors the
+            // service's dedicated-approver-first assignment rule).
+            approver: action.approver ?? DEMO_APPROVER,
             state: "waiting",
           },
         ],
@@ -134,30 +160,205 @@ function reducer(state: DemoState, action: DemoAction): DemoState {
     case "ratify": {
       const amp = state.amendments.find((a) => a.id === action.amendmentId);
       if (!amp) return state;
+      // Same change the review service's ratify makes on real data: append
+      // the draft language to the clause, lift that clause's clarity by 10
+      // capped at 95, and cut a -draft display version. Radar scores are
+      // engine-measured data — the desk never invents their movement.
       return {
         ...state,
         amendments: state.amendments.map((a) =>
           a.id === action.amendmentId ? { ...a, state: "ratified" } : a,
         ),
         guidelines: state.guidelines.map((g) =>
-          g.number === amp.clause ? { ...g, text: amp.draft.replace(/^Add to §[^\s]+: /, "") , clarity: (g.clarity ?? 40) + 10 } : g,
+          g.number === amp.clause
+            ? {
+                ...g,
+                text: `${g.text} ${amp.draft.replace(/^Add to §[^\s]+: /, "")}`.trim(),
+                clarity: g.clarity === null ? null : Math.min(95, g.clarity + 10),
+              }
+            : g,
         ),
-        guidelineVersion: state.guidelineVersion === "v2.3" ? "v2.4-draft" : state.guidelineVersion,
-        radar: state.radar.map((r) => ({ ...r, score: Math.min(95, r.score + 5) })),
+        guidelineVersion: state.guidelineVersion.endsWith("draft")
+          ? state.guidelineVersion
+          : bumpVersion(state.guidelineVersion),
       };
     }
     case "setRole":
       return { ...state, role: action.role };
+    case "__hydrate":
+      return { ...state, ...action.patch };
     default:
       return state;
   }
 }
 
-const DemoContext = createContext<{ state: DemoState; dispatch: React.Dispatch<DemoAction> } | null>(null);
+interface DemoContextValue {
+  state: DemoState;
+  dispatch: React.Dispatch<DemoAction>;
+  /** null ⇒ demo lane; set ⇒ every action is a governed engine call. */
+  session: Session | null;
+  busy: boolean;
+  engineError: string | null;
+  connect: (email: string) => Promise<{ ok: boolean; error?: string }>;
+  disconnect: () => void;
+  refresh: () => Promise<void>;
+  dismissError: () => void;
+}
+
+const DemoContext = createContext<DemoContextValue | null>(null);
 
 export function DemoProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, undefined, seedState);
-  const value = useMemo(() => ({ state, dispatch }), [state]);
+  const [state, dispatchRaw] = useReducer(reducer, undefined, seedState);
+  const [session, setSession] = useState<Session | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [engineError, setEngineError] = useState<string | null>(null);
+  const tokenRef = useRef<string | null>(null);
+
+  const refresh = useCallback(async (token?: string) => {
+    const t = token ?? tokenRef.current;
+    if (!t) return;
+    try {
+      const snapshot = await api.workspace(t);
+      dispatchRaw({ type: "__hydrate", patch: snapshotToState(snapshot) });
+      setEngineError(null);
+    } catch (err) {
+      setEngineError(err instanceof Error ? err.message : "Engine unreachable.");
+    }
+  }, []);
+
+  // Rehydrate on first mount — a real token upgrades the desk to product mode.
+  useEffect(() => {
+    const saved = loadSession();
+    if (!saved) return;
+    tokenRef.current = saved.token;
+    setSession({ token: saved.token, user: { id: "", email: "", name: "", role: "creator", orgId: "" } });
+    setBusy(true);
+    void (async () => {
+      try {
+        const snapshot = await api.workspace(saved.token);
+        dispatchRaw({ type: "__hydrate", patch: snapshotToState(snapshot) });
+        tokenRef.current = saved.token;
+        setSession({ token: saved.token, user: snapshot.user });
+      } catch {
+        clearSession();
+        tokenRef.current = null;
+        setSession(null);
+        setEngineError("Could not reach the engine — showing the demo workspace.");
+      } finally {
+        setBusy(false);
+      }
+    })();
+  }, []);
+
+  const connect = useCallback(async (email: string) => {
+    try {
+      const s = await api.login(email);
+      saveSession(s);
+      tokenRef.current = s.token;
+      setSession(s);
+      setBusy(true);
+      try {
+        await refresh(s.token);
+      } finally {
+        setBusy(false);
+      }
+      return { ok: true };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Engine unreachable.";
+      return { ok: false, error: message };
+    }
+  }, [refresh]);
+
+  const disconnect = useCallback(() => {
+    clearSession();
+    tokenRef.current = null;
+    setSession(null);
+    setEngineError(null);
+  }, []);
+
+  const dispatch = useCallback((action: DemoAction) => {
+    // Product mode: mutating actions hit the governed engine, then the whole
+    // desk re-hydrates from the authoritative snapshot. In demo mode the
+    // reducer stays the whole story.
+    void (async () => {
+      if (action.type === "__hydrate") return;
+      if (!tokenRef.current) {
+        dispatchRaw(action);
+        // Demo lane only: the analyzing pass is real work here — the runner
+        // computes the findings, and the desk settles them once the four
+        // steps have read out. The timer lives in the provider, so
+        // navigating away from the intake screen cannot cancel it.
+        if (action.type === "analyze" && action.review.status === "analyzing") {
+          const reviewId = action.review.id;
+          const issues = analyzeDraft(action.review.sections[0]?.body ?? "");
+          window.setTimeout(() => {
+            // If an engine session takes over mid-run, the reducer no-ops on
+            // the unknown id — nothing is fabricated either way.
+            dispatchRaw({ type: "analysisDone", reviewId, issues });
+          }, 2800);
+        }
+        return;
+      }
+      const t = tokenRef.current;
+      setBusy(true);
+      let failed = false;
+      try {
+        switch (action.type) {
+          case "analyze":
+            dispatchRaw(action); // the real review arrived in the intake screen
+            break;
+          case "resolve":
+            await api.resolveIssue(t, action.reviewId, action.issueId, action.status, action.replacement);
+            break;
+          case "dismiss":
+            await api.dismissIssue(t, action.reviewId, action.issueId, action.reason);
+            break;
+          case "reopen":
+            await api.reopenIssue(t, action.reviewId, action.issueId);
+            break;
+          case "ready":
+            await api.sendForApproval(t, action.reviewId);
+            break;
+          case "sign":
+            await api.signApproval(t, action.entryId);
+            break;
+          case "return":
+            await api.returnApproval(t, action.entryId, action.note);
+            break;
+          case "ratify":
+            await api.ratify(t, action.amendmentId);
+            break;
+          default:
+            // analysisDone & setRole are demo-only; the engine has nothing for them.
+            break;
+        }
+      } catch (err) {
+        failed = true;
+        setEngineError(err instanceof Error ? err.message : "Engine call failed.");
+        return;
+      } finally {
+        setBusy(false);
+        // On success only — a failed call's message must survive.
+        if (tokenRef.current && !failed) await refresh(t);
+      }
+    })();
+  }, [refresh]);
+
+  const value = useMemo(
+    () => ({
+      state,
+      dispatch,
+      session: session?.user.email ? session : null,
+      busy,
+      engineError,
+      connect,
+      disconnect,
+      refresh: () => refresh(),
+      dismissError: () => setEngineError(null),
+    }),
+    [state, dispatch, session, busy, engineError, connect, disconnect, refresh],
+  );
+
   return <DemoContext.Provider value={value}>{children}</DemoContext.Provider>;
 }
 
