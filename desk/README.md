@@ -34,6 +34,11 @@ brand, **Meridian Coffee**, and an end-to-end flow:
 Next.js 15 (App Router) · React 19 · TypeScript strict · Tailwind CSS v4 ·
 lucide-react icons · no UI kit beyond a small native-HTML set (`<dialog>`, semantic
 buttons). State is a typed reducer in `src/lib/store.tsx` over seed data in
-`src/lib/seed.ts` — the interface is the contract a real FastAPI backend plugs into.
+`src/lib/seed.ts` — **that contract now has a real backend**: the governance
+engine in `../engine` (FastAPI, port 8900). Demo mode runs offline exactly as
+before; sign in with a seeded engine email and the desk hydrates from
+`GET /api/workspace` and speaks to the engine instead (see the monorepo
+`../README.md`).
 
-Demo seeds reset on reload; nothing is sent anywhere.
+Demo seeds reset on reload; nothing is sent anywhere unless the engine is
+running and you signed in with a seeded email.
