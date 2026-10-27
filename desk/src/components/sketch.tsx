@@ -63,9 +63,9 @@ export function SketchUnderline({ seed = 3, className }: { seed?: number; classN
 export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={`font-display font-bold tracking-tight ${className ?? ""}`}>
-      Brand
+      Ink
       <span className="relative inline-block">
-        Proof
+        loom
         <SketchUnderline seed={7} />
       </span>
       <span className="text-redpen">.</span>

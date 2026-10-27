@@ -1,39 +1,118 @@
 @import "tailwindcss";
 
 @theme {
-  --color-paper: #FBFAF7;
-  --color-desk: #F2F0E9;
+  /* Drafting-room porcelain + ink — cool light, hairline wiring */
+  --color-paper: #F5F6F4;
+  --color-desk: #EBEDEA;
   --color-sheet: #FFFFFF;
-  --color-ink: #1C2536;
-  --color-ink-soft: #5A6270;
-  --color-line: #E5E1D6;
-  --color-line-strong: #CFCCC2;
-  --color-redpen: #C2402A;
-  --color-redpen-wash: #FAE9E4;
-  --color-pencil: #8A601E;
-  --color-pencil-wash: #F6ECDC;
-  --color-greenink: #1F6B4A;
-  --color-greenink-wash: #E7F0E8;
-  --color-cite: #2457C5;
-  --color-cite-wash: #EAF0FC;
+  --color-ink: #20282B;
+  --color-ink-soft: #5A6470;
+  --color-line: #E2E6E3;
+  --color-line-strong: #C9CFCB;
+  --color-redpen: #B42318;
+  --color-redpen-wash: #F9E8E3;
+  --color-pencil: #7A621C;
+  --color-pencil-wash: #F3EEE1;
+  --color-greenink: #17706B;
+  --color-greenink-wash: #E7F0EC;
+  --color-cite: #2E5AAC;
+  --color-cite-wash: #ECF2FA;
 }
 
 @theme inline {
-  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
-  --font-body: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-plex-serif), Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, SFMono-Regular, monospace;
   --font-hand: var(--font-caveat), cursive;
 }
 
 body {
   background: var(--color-paper);
   color: var(--color-ink);
-  font-family: var(--font-instrument), ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
 }
 
 :focus-visible {
   outline: 2px solid var(--color-cite);
   outline-offset: 2px;
   border-radius: 2px;
+}
+
+/* ============ Motion system ============
+   One curve, transform + opacity only. Motion answers actions:
+   page load, scroll arrival, hover/press. Nothing idles.
+   prefers-reduced-motion folds everything to the final state. */
+:root {
+  --ease-settle: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Hero appear — the page opens plain and settles into place */
+@keyframes rise-in {
+  from {
+    transform: translateY(6px);
+    filter: blur(2px);
+    opacity: 0;
+  }
+}
+.rise-in {
+  animation: rise-in 0.8s var(--ease-settle) both;
+  animation-delay: var(--d, 0s);
+}
+
+/* Scroll arrival — sections rise a short distance, once */
+.reveal {
+  opacity: 0;
+  transform: translateY(32px);
+  transition:
+    transform 0.7s var(--ease-settle),
+    opacity 0.7s var(--ease-settle);
+  transition-delay: var(--d, 0s);
+}
+.reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+/* Tagline activation — words go from muted ink to full ink */
+.tagword {
+  opacity: 0.3;
+  transition: opacity 0.5s var(--ease-settle);
+}
+.tagword.is-on {
+  opacity: 1;
+}
+
+/* Hero heading — the one text gradient, on identity ink (never on backgrounds) */
+.hero-grad {
+  background: linear-gradient(100deg, var(--color-ink) 30%, var(--color-ink-soft) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero-grad-flat {
+  background-image: none;
+  -webkit-text-fill-color: var(--color-ink);
+}
+
+/* Skip to content — keyboard-only affordance */
+.skip-link {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 60;
+  transform: translateY(-300%);
+  background: var(--color-sheet);
+  border: 1px solid var(--color-line-strong);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-ink);
+  transition: transform 0.2s var(--ease-settle);
+}
+.skip-link:focus-visible {
+  transform: translateY(0);
 }
 
 /* Highlighted proofed text inside the reviewed document */
@@ -43,13 +122,13 @@ mark.proof {
   border-radius: 2px;
   cursor: pointer;
 }
-mark.proof[data-sev="high"] { background: var(--color-redpen-wash); box-shadow: inset 0 -2px 0 0 rgb(194 64 42 / 0.55); }
-mark.proof[data-sev="medium"] { background: var(--color-pencil-wash); box-shadow: inset 0 -2px 0 0 rgb(138 96 30 / 0.5); }
-mark.proof[data-sev="low"] { background: var(--color-cite-wash); box-shadow: inset 0 -2px 0 0 rgb(36 87 197 / 0.4); }
+mark.proof[data-sev="high"] { background: var(--color-redpen-wash); box-shadow: inset 0 -2px 0 0 rgb(180 35 24 / 0.55); }
+mark.proof[data-sev="medium"] { background: var(--color-pencil-wash); box-shadow: inset 0 -2px 0 0 rgb(122 98 28 / 0.5); }
+mark.proof[data-sev="low"] { background: var(--color-cite-wash); box-shadow: inset 0 -2px 0 0 rgb(46 90 172 / 0.4); }
 mark.proof[data-status="accepted"],
 mark.proof[data-status="edited"] {
   background: var(--color-greenink-wash);
-  box-shadow: inset 0 -2px 0 0 rgb(31 107 74 / 0.45);
+  box-shadow: inset 0 -2px 0 0 rgb(23 112 107 / 0.45);
 }
 mark.proof[data-status="dismissed"] {
   background: linear-gradient(var(--color-line) 55%, transparent 55%);
@@ -66,10 +145,10 @@ dialog.bp {
   padding: 0;
   background: var(--color-paper);
   color: var(--color-ink);
-  box-shadow: 0 24px 60px rgb(28 37 54 / 0.18);
+  box-shadow: 0 24px 60px rgb(32 40 43 / 0.2);
 }
 dialog.bp::backdrop {
-  background: rgb(28 37 54 / 0.42);
+  background: rgb(32 40 43 / 0.42);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -82,7 +161,7 @@ dialog.bp::backdrop {
 
 /* Stamp */
 .stamp {
-  font-family: var(--font-bricolage);
+  font-family: var(--font-plex-sans);
   letter-spacing: 0.06em;
   border: 3px double currentColor;
   border-radius: 6px;
