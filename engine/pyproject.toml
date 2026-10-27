@@ -1,0 +1,60 @@
+[project]
+name = "brandproof-engine"
+version = "0.1.0"
+description = "BrandProof governance engine — evidence-backed review workflow with deterministic checks, embeddings retrieval, RBAC, and approval manifests."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.118",
+    "uvicorn[standard]>=0.37",
+    "pydantic>=2.11",
+    "pydantic-settings>=2.10",
+    "email-validator>=2.2",
+    "sqlalchemy[asyncio]>=2.0.44",
+    "aiosqlite>=0.21",
+    "pyjwt>=2.10",
+    "fpdf2>=2.8",
+    "python-multipart>=0.0.20",
+    "python-docx>=1.1",
+]
+
+[project.optional-dependencies]
+# Production database path (Neon / any PostgreSQL 16 with pgvector).
+postgres = ["asyncpg>=0.30"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4",
+    "pytest-asyncio>=1.2",
+    "mypy>=1.18",
+    "ruff>=0.14",
+    "httpx>=0.28.1",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = ["fpdf.*", "openai.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["app.services.manifest_pdf"]
+disallow_untyped_calls = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+# B008: FastAPI's documented DI pattern is `Depends(...)` in defaults.
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["B008"]
