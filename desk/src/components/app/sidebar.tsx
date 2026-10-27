@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import {
+  ArrowUpRightSquare,
   BookOpen,
   ClipboardCheck,
   FileText,
   Home,
   Info,
+  Network,
   PenLine,
   type LucideIcon,
 } from "lucide-react";
@@ -60,19 +62,21 @@ function GroupLabel({ children }: { children: string }) {
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { state, dispatch } = useDemo();
+  const { state, dispatch, session, engineError } = useDemo();
 
   const openFlags = state.reviews.reduce((sum, r) => sum + unresolved(r).length, 0);
   const waiting = state.approvals.filter((a) => a.state === "waiting").length;
 
   const links = [
-    { href: "/app", label: "Overview", icon: Home },
+    { href: "/app", label: "Dashboard", icon: Home },
     { href: "/app/reviews", label: "Reviews", icon: FileText, count: openFlags },
-    { href: "/app/intake", label: "New review", icon: PenLine },
+    { href: "/app/reviews/new", label: "New review", icon: PenLine },
     { href: "/app/approvals", label: "Approvals", icon: ClipboardCheck, count: waiting },
   ];
-  const deskLinks = [
-    { href: "/app/guidelines", label: "Knowledge base", icon: BookOpen },
+  const truthLinks = [
+    { href: "/app/dna", label: "Brand DNA", icon: BookOpen },
+    { href: "/app/trust-graph", label: "Trust Graph", icon: Network },
+    { href: "/app/proposals", label: "Learning proposals", icon: ArrowUpRightSquare },
     { href: "/how-it-works", label: "How this review works", icon: Info },
   ];
 
@@ -83,37 +87,70 @@ export function Sidebar() {
           <Wordmark className="text-[19px]" />
         </Link>
         <nav className="mt-4 flex flex-1 flex-col" aria-label="Workspace">
-          <GroupLabel>workspace</GroupLabel>
+          <GroupLabel>Pipeline</GroupLabel>
           <div className="flex flex-col gap-0.5">
             {links.map((l) => (
               <NavLink key={l.href} {...l} active={pathname === l.href} />
             ))}
           </div>
-          <GroupLabel>brand desk</GroupLabel>
+          <GroupLabel>Ground truth</GroupLabel>
           <div className="flex flex-col gap-0.5">
-            {deskLinks.map((l) => (
+            {truthLinks.map((l) => (
               <NavLink key={l.href} {...l} active={pathname === l.href} />
             ))}
           </div>
         </nav>
         <div className="mt-4 px-2.5">
-          <label className="block pb-1 text-[11.5px] font-medium text-ink-soft/70" htmlFor="role">
-            demo role
-          </label>
-          <select
-            id="role"
-            value={state.role}
-            onChange={(e) => dispatch({ type: "setRole", role: e.target.value as Role })}
-            className="h-9 w-full rounded-md border border-line-strong bg-sheet px-2 text-sm"
+          {/* Lane status — one quiet line; the detail rides on hover */}
+          <div
+            className="mb-3 flex items-center gap-2 rounded-md px-2.5 py-1"
+            title={
+              session
+                ? "Connected to the review service — live findings, governed actions."
+                : engineError
+                  ? "The review service is unreachable, so the desk runs labeled sample data."
+                  : "Sample data only — nothing on this desk is real."
+            }
           >
-            {Object.entries(ROLE_LABELS).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label} — you
-              </option>
-            ))}
-          </select>
+            <span
+              aria-hidden
+              className={clsx("h-1.5 w-1.5 shrink-0 rounded-full", session ? "bg-greenink" : "bg-pencil")}
+            />
+            <span
+              className={clsx(
+                "text-[11.5px] font-semibold tracking-wide",
+                session ? "text-greenink" : "text-pencil",
+              )}
+            >
+              {session ? "Live desk" : "Sample desk"}
+            </span>
+          </div>
+          <label className="block pb-1 text-[11.5px] font-medium text-ink-soft/70" htmlFor="role">
+            {session ? "your seat" : "demo role"}
+          </label>
+          {session ? (
+            <div className="rounded-md border border-line-strong bg-sheet px-2.5 py-2">
+              <p className="text-[12.5px] font-medium">{ROLE_LABELS[state.role]}</p>
+              <p className="truncate pt-0.5 text-[11px] text-ink-soft">{session.user.email}</p>
+            </div>
+          ) : (
+            <select
+              id="role"
+              value={state.role}
+              onChange={(e) => dispatch({ type: "setRole", role: e.target.value as Role })}
+              className="h-9 w-full rounded-md border border-line-strong bg-sheet px-2 text-sm"
+            >
+              {Object.entries(ROLE_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label} — you
+                </option>
+              ))}
+            </select>
+          )}
           <p className="pt-2 text-[11.5px] leading-snug text-ink-soft/70">
-            Private demo workspace. Nothing ships anywhere.
+            {session
+              ? "Signed into the review service — role comes from your token."
+              : "Private demo workspace. Nothing ships anywhere."}
           </p>
         </div>
       </aside>

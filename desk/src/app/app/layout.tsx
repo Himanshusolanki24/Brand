@@ -6,9 +6,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <DemoProvider>
       <div className="md:flex">
         <Sidebar />
-        <div className="min-w-0 flex-1 px-5 pb-16 pt-6 md:px-10 md:pt-9">
+        <main id="app-main" className="min-w-0 flex-1 px-5 pb-16 pt-6 md:px-10 md:pt-9">
           <div className="mx-auto max-w-6xl">{children}</div>
-        </div>
+        </main>
       </div>
     </DemoProvider>
   );
