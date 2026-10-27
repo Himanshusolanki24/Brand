@@ -7,7 +7,7 @@ import { Stamp, StatusPill } from "@/components/ui/pills";
 import { ClarityRadar } from "@/components/app/clarity-radar";
 
 export default function DashboardPage() {
-  const { state, dispatch } = useDemo();
+  const { state } = useDemo();
 
   const openFlags = state.reviews.reduce((sum, r) => sum + unresolved(r).length, 0);
   const inFlow = state.reviews.filter(
@@ -39,7 +39,7 @@ export default function DashboardPage() {
             Meridian Coffee — guidelines {state.guidelineVersion}, same version every word is judged against.
           </p>
         </div>
-        <Link href="/app/intake">
+        <Link href="/app/reviews/new">
           <Button size="sm" className="gap-1.5">
             Proof a new piece
           </Button>
@@ -63,7 +63,10 @@ export default function DashboardPage() {
             <span className="font-hand text-[15px] text-pencil">close the loop</span>
           </div>
           <p className="mt-1 text-[12.5px] text-ink-soft">
-            How decidable each clause actually is — measured from real review cycles, drawn each week.
+            How decidable each clause actually is.
+          </p>
+          <p className="mt-1 rounded-md bg-pencil-wash px-2.5 py-1.5 text-[11.5px] font-medium leading-snug text-pencil">
+            Illustrative — sample axes, not your data.
           </p>
           <div className="mt-2 flex justify-center">
             <ClarityRadar scores={state.radar} size={216} />
@@ -81,40 +84,42 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-5">
           <section className="rounded-lg border border-line bg-sheet p-5">
             <h2 className="font-display text-[17px] font-semibold">
-              Draft amendments the radar is proposing
+              Learning proposals
             </h2>
             <p className="mt-1 text-[12.5px] text-ink-soft">
-              Weak clauses are a finding too. Nothing lands in the rulebook without a human ratifying it.
+              Reviewer feedback turned into draft rulebook text. Nothing lands in the rulebook without a
+              human ratifying it.
             </p>
             <ul className="mt-4 space-y-4">
               {proposed.length === 0 ? (
-                <li className="text-sm text-ink-soft">All drafts handled. The rulebook is as sharp as it gets this week.</li>
+                <li className="text-sm text-ink-soft">No drafts are waiting — nothing to sign this week.</li>
               ) : null}
               {proposed.map((a) => (
                 <li key={a.id} className="rounded-md border border-line p-4">
                   <div className="flex items-center gap-2.5">
                     <span className="font-display text-[13px] font-semibold text-cite">§{a.clause}</span>
-                    <span className="font-hand text-[15px] leading-none text-pencil">proposed by the radar</span>
+                    <span className="font-hand text-[15px] leading-none text-pencil">draft for ratification</span>
                   </div>
                   <p className="mt-2 text-[13px] font-medium">{a.basedOn}</p>
                   <blockquote className="mt-2 border-l-2 border-pencil pl-3 text-[13.5px] leading-relaxed text-ink">
                     {a.draft}
                   </blockquote>
                   {a.state === "proposed" ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="mt-3"
-                      onClick={() => dispatch({ type: "ratify", amendmentId: a.id })}
+                    <Link
+                      href={`/app/proposals/${a.id}`}
+                      className="inline-block rounded-md border border-line-strong bg-sheet px-3 py-2 text-[13px] font-medium transition-colors hover:border-ink active:border-ink"
                     >
-                      Ratify into the next draft
-                    </Button>
+                      Review the draft
+                    </Link>
                   ) : (
                     <div className="mt-3"><Stamp label="Ratified" /></div>
                   )}
                 </li>
               ))}
             </ul>
+            <Link href="/app/proposals" className="mt-4 inline-block text-[13px] font-medium text-cite hover:underline">
+              All learning proposals
+            </Link>
           </section>
 
           <section className="rounded-lg border border-line bg-sheet p-5">

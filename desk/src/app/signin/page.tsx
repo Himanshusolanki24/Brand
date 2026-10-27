@@ -5,15 +5,19 @@ import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Wordmark } from "@/components/sketch";
 import { Button } from "@/components/ui/button";
+import { api, saveSession } from "@/lib/api";
 
 const DEMO_CODE = "0007";
 
+type Mode = "email" | "code";
+
 export default function SignInPage() {
   const router = useRouter();
-  const [stage, setStage] = useState<"email" | "code">("email");
+  const [stage, setStage] = useState<Mode>("email");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [connecting, setConnecting] = useState(false);
 
   const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
@@ -22,10 +26,21 @@ export default function SignInPage() {
     setError(null);
   };
 
-  const verify = () => {
+  const verify = async () => {
     if (code.trim() !== DEMO_CODE) {
       setError("That code doesn't match. The demo code is written right below the field.");
       return;
+    }
+    // The engine seats you with your real name, role, and workspace when it
+    // answers; otherwise the same code opens the self-contained demo desk.
+    setConnecting(true);
+    try {
+      const session = await api.login(email);
+      saveSession(session);
+    } catch {
+      // No engine running — carry on in demo mode.
+    } finally {
+      setConnecting(false);
     }
     router.push("/app");
   };
@@ -61,12 +76,16 @@ export default function SignInPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="maya@meridiancoffee.com"
+              placeholder="maya@brandproof.app"
               className="h-10 w-full rounded-md border border-line-strong bg-sheet px-3 text-sm"
             />
             {!emailOk && email.length > 0 ? (
               <p className="pt-1.5 text-[12px] text-pencil">A full email, please — any address works in the demo.</p>
             ) : null}
+            <p className="pt-1.5 text-[12px] text-ink-soft">
+              Seats on a live desk: priya@, ravi@, maya@meridiancoffee.com ·
+              admin@brandproof.app — the seat decides what you may do.
+            </p>
             <Button type="submit" disabled={!emailOk} className="mt-4 w-full">
               Send the code
             </Button>
@@ -91,8 +110,8 @@ export default function SignInPage() {
               className="h-10 w-full rounded-md border border-line-strong bg-sheet px-3 text-sm tabular-nums"
             />
             {error ? <p className="pt-1.5 text-[12px] text-redpen">{error}</p> : null}
-            <Button type="submit" disabled={code.length < 4} className="mt-4 w-full">
-              Step onto the desk
+            <Button type="submit" disabled={code.length < 4 || connecting} className="mt-4 w-full">
+              {connecting ? "Seating you…" : "Step onto the desk"}
             </Button>
           </form>
         )}

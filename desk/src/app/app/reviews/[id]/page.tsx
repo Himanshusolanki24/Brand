@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import clsx from "clsx";
 import { ArrowLeft, BadgeCheck } from "lucide-react";
 import { bySeverity, fmtDate, unresolved, useDemo } from "@/lib/store";
+import { api } from "@/lib/api";
 import { analyzeDraft } from "@/lib/analyze";
 import { StatusPill, Stamp } from "@/components/ui/pills";
 import { Button } from "@/components/ui/button";
@@ -61,7 +62,8 @@ function ProseSection({
   return (
     <section>
       <h3 className="font-display text-[13.5px] font-semibold text-ink-soft">{heading}</h3>
-      <p className="mt-2 text-[15.5px] leading-[1.85]">{out}</p>
+      {/* The reviewed copy itself reads serif — the register distinction. */}
+      <p className="mt-2 font-serif text-[16px] leading-[1.9]">{out}</p>
     </section>
   );
 }
@@ -115,27 +117,62 @@ function AnalyzingPanel() {
 
 export default function ReviewDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { state, dispatch } = useDemo();
+  const { state, dispatch, engineError, dismissError, session } = useDemo();
   const [focusId, setFocusId] = useState<string | null>(null);
-  const analyzed = useRef(false);
+  // Dry-run (quarantined recheck) state — product lane only.
+  const [previewPhase, setPreviewPhase] = useState<"idle" | "running" | "done" | "error">("idle");
+  const [previewIssues, setPreviewIssues] = useState<Issue[]>([]);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const review = state.reviews.find((r) => r.id === id);
 
   useEffect(() => {
-    if (!review || review.status !== "analyzing" || analyzed.current) return;
-    analyzed.current = true;
+    // The store schedules the settle on submit; this page backs up any
+    // analyzing review it is shown — e.g. one orphaned by a mid-run lane
+    // flip. StrictMode-safe by design: the first mount's cleanup cancels
+    // its timer and the second run schedules it again; the settle itself is
+    // idempotent in state. Demo lane only — product reviews arrive
+    // complete from the engine and are never self-analyzed here.
+    if (!review || review.status !== "analyzing" || session) return;
     const issues = analyzeDraft(review.sections.map((s) => s.body).join("\n\n"));
     const t = setTimeout(() => {
       dispatch({ type: "analysisDone", reviewId: review.id, issues });
     }, 3400);
     return () => clearTimeout(t);
-  }, [review, dispatch]);
+  }, [review, dispatch, session]);
+
+  // Shareable spot anchors: #f=<id> (from a mark) or #e=<id> (from evidence)
+  // highlight that finding's ledger row.
+  useEffect(() => {
+    const apply = () => {
+      const m = window.location.hash.match(/^#(?:f|e)=(.+)$/);
+      if (m) setFocusId(m[1]);
+    };
+    apply();
+    window.addEventListener("hashchange", apply);
+    return () => window.removeEventListener("hashchange", apply);
+  }, []);
 
   const focus = (issueId: string) => {
     setFocusId(issueId);
+    window.history.replaceState(null, "", `#f=${issueId}`);
     document
       .getElementById(`card-${issueId}`)
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
+  const runPreview = async () => {
+    if (!session || !review) return;
+    setPreviewPhase("running");
+    setPreviewError(null);
+    try {
+      const res = await api.checksPreview(session.token, review.sections.map((s) => s.body).join("\n\n"));
+      setPreviewIssues(res.issues);
+      setPreviewPhase("done");
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : "The dry run failed.");
+      setPreviewPhase("error");
+    }
   };
 
   if (!review) {
@@ -152,13 +189,34 @@ export default function ReviewDetailPage() {
 
   const open = unresolved(review);
   const tray = bySeverity(review.issues);
-  const allDecided = open.length === 0;
-  const canSend =
-    (review.status === "in_review" || review.status === "changes_requested") &&
-    review.issues.length > 0;
+  // The hand-off rule, mirrored from the review service: unresolved
+  // high-severity findings block approval; everything else may ride along.
+  const openHigh = open.filter((i) => i.severity === "high").length;
+  const sendableStatus =
+    review.status === "in_review" || review.status === "changes_requested";
+
+  // Dry-run matching: a preview finding pairs with a stored one by the clause
+  // it cites and the exact quote — never by preview ids, which mean nothing.
+  const keyOf = (i: Issue) => `${i.citation?.clause ?? "advisory"}::${i.quote}`;
+  const previewKeys = new Set(previewIssues.map(keyOf));
+  const extraRows = previewIssues.filter(
+    (p) => !review.issues.some((i) => keyOf(i) === keyOf(p)),
+  );
 
   return (
     <div>
+      {engineError ? (
+        <div className="mb-5 flex items-start justify-between gap-3 rounded-lg border border-redpen/30 bg-redpen-wash px-5 py-3.5">
+          <p className="text-[13px] leading-snug text-redpen">{engineError}</p>
+          <button
+            onClick={dismissError}
+            className="text-[12px] font-medium text-redpen/80 hover:text-redpen"
+          >
+            dismiss
+          </button>
+        </div>
+      ) : null}
+
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
           <Link
@@ -176,6 +234,14 @@ export default function ReviewDetailPage() {
               by {review.author} · submitted {fmtDate(review.submittedAt)}
             </span>
             <StatusPill status={review.status} />
+            {state.guidelineVersion !== review.policyVersion ? (
+              <span
+                className="rounded-full border border-line bg-sheet px-2 py-0.5 font-mono text-[11px] tabular-nums"
+                title={`This review was checked under ${review.policyVersion}; the desk currently shows ${state.guidelineVersion}. The findings above cite their own pinned versions.`}
+              >
+                pinned to {review.policyVersion}
+              </span>
+            ) : null}
           </div>
         </div>
         {review.status === "approved" ? <Stamp label="Approved" /> : null}
@@ -195,7 +261,11 @@ export default function ReviewDetailPage() {
           <BadgeCheck size={17} className="text-cite" aria-hidden />
           <p className="text-[13.5px]">
             Every flag is decided. This piece is waiting on{" "}
-            <span className="font-medium">Maya Okafor&apos;s</span> signature — see{" "}
+            <span className="font-medium">
+              {state.approvals.find((a) => a.reviewId === review.id)?.approver ?? "the assigned approver"}
+              &apos;s
+            </span>{" "}
+            signature — see{" "}
             <Link href="/app/approvals" className="font-medium text-cite hover:underline">
               Approvals
             </Link>
@@ -231,14 +301,89 @@ export default function ReviewDetailPage() {
             </p>
           </div>
 
-          {canSend && allDecided ? (
-            <Button
-              variant="approve"
-              className="w-full"
-              onClick={() => dispatch({ type: "ready", reviewId: review.id })}
-            >
-              Send for approval
-            </Button>
+          {sendableStatus ? (
+            <div>
+              <Button
+                variant="approve"
+                className="w-full"
+                disabled={openHigh > 0}
+                onClick={() => dispatch({ type: "ready", reviewId: review.id })}
+                title={openHigh > 0 ? `${openHigh} unresolved high-severity ${openHigh === 1 ? "finding blocks" : "findings block"} approval` : undefined}
+              >
+                Send for approval
+              </Button>
+              <p className="pt-1.5 text-[11.5px] leading-snug text-ink-soft/80">
+                {openHigh > 0
+                  ? `${openHigh} unresolved high-severity ${openHigh === 1 ? "finding blocks" : "findings block"} approval — the same rule the review service enforces.`
+                  : session
+                    ? "The review service assigns the approver when this lands."
+                    : "The sample approver takes it from here on this demo desk."}
+              </p>
+            </div>
+          ) : null}
+
+          {/* Quarantined recheck — product lane only, nothing persisted */}
+          {session && review.status !== "analyzing" ? (
+            <section className="rounded-lg border border-line bg-sheet p-4">
+              <h3 className="font-display text-[15px] font-semibold">Recheck against the newest rules</h3>
+              <p className="mt-1 text-[12.5px] leading-snug text-ink-soft">
+                Runs the same copy through the deterministic checks under{" "}
+                <span className="font-medium">{state.guidelineVersion}</span> — before you commit to
+                anything. The review stays pinned to <span className="font-medium">{review.policyVersion}</span>;
+                nothing here is recorded.
+              </p>
+              <Button
+                size="sm"
+                className="mt-3"
+                disabled={previewPhase === "running"}
+                onClick={() => void runPreview()}
+              >
+                {previewPhase === "running" ? "Running the dry run…" : "Run dry run"}
+              </Button>
+              {previewPhase === "error" ? (
+                <p className="mt-2 text-[12.5px] font-medium text-redpen">{previewError}</p>
+              ) : null}
+              {previewPhase === "done" ? (
+                <div className="mt-3 border-t border-line pt-3">
+                  {review.issues.length > 0 ? (
+                    <ul className="space-y-1.5">
+                      {review.issues.map((i) => {
+                        const stillFlagged = previewKeys.has(keyOf(i));
+                        return (
+                          <li key={i.id} className="flex items-baseline justify-between gap-3 text-[12.5px]">
+                            <span className="min-w-0 flex-1 truncate text-ink" title={i.quote}>
+                              {i.quote}
+                            </span>
+                            <span className={clsx("shrink-0 font-medium", stillFlagged ? "text-cite" : "text-ink-soft")}>
+                              {stillFlagged ? "still flagged in the newest pass" : "clear in the newest pass"}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  ) : (
+                    <p className="text-[12.5px] text-ink-soft">
+                      This review has no findings on record; see below for what the newest pass scores.
+                    </p>
+                  )}
+                  {extraRows.length > 0 ? (
+                    <div className="mt-3">
+                      <p className="text-[11.5px] font-medium text-ink-soft">
+                        Flagged in the newest pass, absent from this review&apos;s record:
+                      </p>
+                      <ul className="mt-1.5 space-y-1.5">
+                        {extraRows.map((p) => (
+                          <li key={p.id} className="text-[12.5px] leading-snug">
+                            <span className="font-medium text-redpen">{p.headline}:</span>{" "}
+                            <span className="text-ink">{p.quote}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
           ) : null}
 
           {tray.length === 0 && review.status === "analyzing" ? (
@@ -262,7 +407,7 @@ export default function ReviewDetailPage() {
           ) : null}
 
           <p className="pt-1 text-[11.5px] leading-snug text-ink-soft/80">
-            Three verdicts only — accept, rewrite it yourself, or send the flag back with a reason.
+            Three verdicts only — keep the line as-is, rewrite it yourself, or send the flag back with a reason.
           </p>
         </aside>
       </div>

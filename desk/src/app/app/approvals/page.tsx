@@ -3,19 +3,41 @@
 import { useState } from "react";
 import Link from "next/link";
 import { fmtDate, useDemo } from "@/lib/store";
+import { api } from "@/lib/api";
+import { can } from "@/lib/permits";
 import { Button } from "@/components/ui/button";
 import { Stamp, StatusPill } from "@/components/ui/pills";
 import { Modal } from "@/components/ui/modal";
 import { Wordmark } from "@/components/sketch";
-
-const APPROVER = "Maya Okafor";
+import { FileDown } from "lucide-react";
 
 export default function ApprovalsPage() {
-  const { state, dispatch } = useDemo();
+  const { state, dispatch, session } = useDemo();
   const [signingName, setSigningName] = useState("");
   const [signOpen, setSignOpen] = useState<string | null>(null);
   const [returnOpen, setReturnOpen] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [exporting, setExporting] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+
+  // Seat for permission checks: signed-in role, else the demo seat picked in
+  // the sidebar (server-side RBAC stays authoritative in product mode).
+  const seat = session?.user.role ?? state.role;
+  const canSign = can(seat, "sign_approval");
+  const canExport = can(seat, "export_manifest");
+
+  const exportManifest = async (approvalId: string) => {
+    if (!session) return;
+    setExporting(approvalId);
+    setExportError(null);
+    try {
+      await api.manifestPdf(session.token, approvalId);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : "Export failed.");
+    } finally {
+      setExporting(null);
+    }
+  };
 
   const entries = state.approvals
     .map((a) => ({ entry: a, review: state.reviews.find((r) => r.id === a.reviewId) }))
@@ -25,7 +47,7 @@ export default function ApprovalsPage() {
   return (
     <div>
       <header>
-        <h1 className="font-display text-[24px] font-semibold tracking-tight">Approval manifest</h1>
+        <h1 className="font-display text-[24px] font-semibold tracking-tight">Approvals</h1>
         <p className="text-sm text-ink-soft">
           The proof trail. Each signature names who, what, and which rulebook version — this is the page you
           would hand an auditor.
@@ -60,15 +82,53 @@ export default function ApprovalsPage() {
 
               <div className="flex items-center gap-2.5">
                 {entry.state === "signed" ? <Stamp label="Signed" /> : null}
+                {entry.state === "signed" && session ? (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    disabled={!canExport || exporting === entry.id}
+                    onClick={() => void exportManifest(entry.id)}
+                    title={
+                      canExport
+                        ? "Download the approval record PDF"
+                        : "Exporting the approval record is a reviewer-and-up action — creators don't have it."
+                    }
+                  >
+                    <FileDown size={14} aria-hidden /> Approval record
+                  </Button>
+                ) : null}
                 {entry.state === "waiting" ? (
                   <>
-                    <Button size="sm" variant="approve" onClick={() => setSignOpen(entry.id)}>
+                    <Button
+                      size="sm"
+                      variant="approve"
+                      disabled={!canSign}
+                      onClick={() => {
+                        setSigningName("");
+                        setSignOpen(entry.id);
+                      }}
+                      title={
+                        canSign
+                          ? undefined
+                          : "Signing an approval is an approver/admin action — this lane is not yours to decide."
+                      }
+                    >
                       Sign off
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => {
-                      setNote("");
-                      setReturnOpen(entry.id);
-                    }}>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      disabled={!canSign}
+                      onClick={() => {
+                        setNote("");
+                        setReturnOpen(entry.id);
+                      }}
+                      title={
+                        canSign
+                          ? undefined
+                          : "Sending an approval back is an approver/admin action — this lane is not yours to decide."
+                      }
+                    >
                       Send back with note
                     </Button>
                   </>
@@ -85,43 +145,63 @@ export default function ApprovalsPage() {
         </p>
       ) : null}
 
-      {/* Sign modal */}
+      {exportError ? (
+        <p className="mt-3 rounded-lg border border-redpen/30 bg-redpen-wash px-5 py-3 text-[13px] text-redpen">
+          {exportError}
+        </p>
+      ) : null}
+
+      {/* Sign modal — typing the assigned approver's name is the signature */}
       <Modal
         open={signOpen !== null}
         onClose={() => {
           setSignOpen(null);
           setSigningName("");
         }}
-        title="Sign the manifest"
+        title="Sign the approval record"
       >
         <p className="text-[13.5px] text-ink-soft">
-          Typing the full name is the signature. It lands on the manifest with today&apos;s date and the
+          Typing the full name is the signature. It lands on the approval record with today&apos;s date and the
           rulebook version — {state.guidelineVersion}.
         </p>
-        <label htmlFor="signName" className="block pt-3 pb-1.5 text-[12.5px] font-medium text-ink-soft">
-          Approver name (type: {APPROVER})
-        </label>
-        <input
-          id="signName"
-          value={signingName}
-          onChange={(e) => setSigningName(e.target.value)}
-          placeholder={APPROVER}
-          className="h-10 w-full rounded-md border border-line-strong bg-paper px-3 text-sm"
-        />
-        <div className="flex items-center justify-between gap-3 pt-4">
-          <Wordmark className="text-[13px] text-ink-soft/70" />
-          <Button
-            variant="approve"
-            disabled={signingName.trim() !== APPROVER || signOpen === null}
-            onClick={() => {
-              if (signOpen) dispatch({ type: "sign", entryId: signOpen, by: APPROVER });
-              setSignOpen(null);
-              setSigningName("");
-            }}
-          >
-            Sign
-          </Button>
-        </div>
+        {(() => {
+          const lane = signOpen ? entries.find((x) => x.entry.id === signOpen)?.entry : null;
+          const assigned = lane?.approver ?? "";
+          const matches = assigned.length > 0 && signingName.trim() === assigned;
+          return (
+            <>
+              <label htmlFor="signName" className="block pt-3 pb-1.5 text-[12.5px] font-medium text-ink-soft">
+                Approver name — this lane is assigned to {assigned || "an approver"}
+              </label>
+              <input
+                id="signName"
+                value={signingName}
+                onChange={(e) => setSigningName(e.target.value)}
+                placeholder={assigned}
+                className="h-10 w-full rounded-md border border-line-strong bg-paper px-3 text-sm"
+              />
+              {!matches && signingName.trim().length > 0 ? (
+                <p className="pt-1.5 text-[12px] text-ink-soft">
+                  Only the assigned approver can sign this lane — the review service rejects anyone else.
+                </p>
+              ) : null}
+              <div className="flex items-center justify-between gap-3 pt-4">
+                <Wordmark className="text-[13px] text-ink-soft/70" />
+                <Button
+                  variant="approve"
+                  disabled={!matches || signOpen === null}
+                  onClick={() => {
+                    if (signOpen) dispatch({ type: "sign", entryId: signOpen, by: assigned });
+                    setSignOpen(null);
+                    setSigningName("");
+                  }}
+                >
+                  Sign
+                </Button>
+              </div>
+            </>
+          );
+        })()}
       </Modal>
 
       {/* Return-note modal */}
@@ -149,7 +229,12 @@ export default function ApprovalsPage() {
             disabled={note.trim().length < 4 || returnOpen === null}
             onClick={() => {
               if (returnOpen) {
-                dispatch({ type: "return", entryId: returnOpen, note: note.trim(), by: APPROVER });
+                dispatch({
+                  type: "return",
+                  entryId: returnOpen,
+                  note: note.trim(),
+                  by: entries.find((x) => x.entry.id === returnOpen)?.entry.approver ?? "",
+                });
               }
               setReturnOpen(null);
               setNote("");
