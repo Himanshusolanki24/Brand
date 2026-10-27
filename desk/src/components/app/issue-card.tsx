@@ -4,14 +4,15 @@ import { useState } from "react";
 import clsx from "clsx";
 import { Quote, Undo2 } from "lucide-react";
 import { useDemo } from "@/lib/store";
-import { SeverityPill, ConfidenceTag, AdvisoryTag } from "@/components/ui/pills";
+import { can } from "@/lib/permits";
+import { SeverityPill, ConfidenceTag, AdvisoryTag, VerificationPill } from "@/components/ui/pills";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import type { Issue } from "@/lib/types";
 
 const RESOLVED_LABEL: Record<string, { cls: string; text: string }> = {
-  accepted: { cls: "text-greenink", text: "Accepted — the line can stand" },
-  edited: { cls: "text-pencil", text: "Edited — a human rewrote it" },
+  accepted: { cls: "text-greenink", text: "Kept as-is — the line can stand" },
+  edited: { cls: "text-pencil", text: "Rewritten — a human fixed the line" },
   dismissed: { cls: "text-ink-soft", text: "Dismissed — reason on record" },
 };
 
@@ -24,7 +25,7 @@ export function IssueCard({
   reviewId: string;
   focusId: string | null;
 }) {
-  const { dispatch } = useDemo();
+  const { dispatch, state, session } = useDemo();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [dismissing, setDismissing] = useState(false);
@@ -33,6 +34,12 @@ export function IssueCard({
   const [clauseOpen, setClauseOpen] = useState(false);
 
   const resolved = issue.status !== "open";
+  // The evidence the knowledge-base pass attached to this finding, joined
+  // against the proof desk's fact rows. Empty = none was attached.
+  const evidence = state.facts.filter((f) => issue.evidenceIds.includes(f.id));
+  // Dismissing is a reviewer-and-up action; the seat is the signed-in role,
+  // or the picked demo seat. A creator sees it gated, not gone.
+  const canDismiss = can(session?.user.role ?? state.role, "dismiss_issue");
 
   const beginEdit = () => {
     setDraft(issue.replacement ?? issue.suggested ?? "");
@@ -93,6 +100,7 @@ export function IssueCard({
       <div className="flex flex-wrap items-center gap-2">
         <SeverityPill severity={issue.severity} />
         <ConfidenceTag confidence={issue.confidence} />
+        {issue.verification ? <VerificationPill verification={issue.verification} /> : null}
         {issue.citation === null && !resolved ? <AdvisoryTag /> : null}
       </div>
 
@@ -122,6 +130,26 @@ export function IssueCard({
         </div>
       )}
 
+      {/* Evidence drawer — what the knowledge-base pass actually found */}
+      {evidence.length > 0 ? (
+        <div className="mt-3 rounded-md border border-line bg-paper px-3 py-2.5">
+          <p className="pb-1.5 text-[11.5px] font-medium text-ink-soft">
+            Evidence from the fact sheet
+          </p>
+          <ul className="space-y-1.5">
+            {evidence.map((f) => (
+              <li key={f.id} className="text-[13px] leading-snug">
+                <span className="font-mono text-[11.5px] font-medium text-cite">[{f.id}]</span>{" "}
+                <span className="text-ink">{f.claim}</span>
+                <span className="block pl-1 text-[12px] text-ink-soft">
+                  {f.source} · verified {f.verified}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       {/* The fix, before and after */}
       <div className="mt-3 rounded-md border border-line bg-paper px-3 py-2.5">
         {!resolved ? (
@@ -140,7 +168,7 @@ export function IssueCard({
         <p className="pt-1.5 text-[12.5px] text-ink-soft">{issue.rationale}</p>
         {issue.suggested === "" && !resolved ? (
           <p className="pt-1 font-hand text-[14px] leading-tight text-pencil">
-            no canned rewrite for this one — open Edit and write the honest sentence yourself
+            no canned rewrite for this one — open Rewrite and write the honest sentence yourself
           </p>
         ) : null}
       </div>
@@ -182,7 +210,7 @@ export function IssueCard({
             />
             <div className="flex gap-2 pt-2">
               <Button variant="approve" size="sm" disabled={draft.trim().length === 0} onClick={saveEdit}>
-                Save your edit
+                Save rewrite
               </Button>
               <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
                 Cancel
@@ -232,18 +260,28 @@ export function IssueCard({
                   dispatch({ type: "resolve", reviewId, issueId: issue.id, status: "accepted" })
                 }
               >
-                Accept
+                Keep line as-is
               </Button>
               <Button size="sm" onClick={beginEdit}>
-                Edit
+                Rewrite this line
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => setDismissing(true)}>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setDismissing(true)}
+                disabled={!canDismiss}
+                title={
+                  canDismiss
+                    ? undefined
+                    : "Dismiss with reason is a reviewer-and-up action — creators resolve every flag instead."
+                }
+              >
                 Dismiss
               </Button>
             </div>
             {issue.suggested === "" ? (
               <p className="pt-1 font-hand text-[14px] leading-tight text-pencil">
-                no canned rewrite here — open Edit and write the honest sentence yourself
+                no canned rewrite here — open Rewrite and write the honest sentence yourself
               </p>
             ) : null}
           </>

@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import { VERIFICATION_LABELS, type Verification } from "@/lib/types";
 
 export function SeverityPill({ severity }: { severity: "high" | "medium" | "low" }) {
   const styles = {
@@ -16,8 +17,40 @@ export function SeverityPill({ severity }: { severity: "high" | "medium" | "low"
 
 export function ConfidenceTag({ confidence }: { confidence: number }) {
   return (
-    <span className="text-[12px] text-ink-soft tabular-nums" title="How sure the analysis is about this flag">
-      sure {confidence.toFixed(2)}
+    <span
+      className="text-[12px] text-ink-soft tabular-nums"
+      title="Analysis confidence — how sure the check that raised this flag is"
+    >
+      Analysis confidence {Math.round(confidence * 100)}%
+    </span>
+  );
+}
+
+/**
+ * The evidence verdict on a finding, in the vocabulary the desk teaches:
+ * Unverified means the knowledge base had nothing either way — never false.
+ */
+export function VerificationPill({ verification }: { verification: Verification }) {
+  const styles: Record<Verification, { cls: string }> = {
+    supported: { cls: "bg-greenink-wash text-greenink" },
+    contradicted: { cls: "bg-redpen-wash text-redpen" },
+    unverified: { cls: "bg-pencil-wash text-pencil" },
+    inconclusive: { cls: "bg-pencil-wash text-pencil" },
+  };
+  return (
+    <span
+      className={clsx(
+        "inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[12px] font-semibold",
+        styles[verification].cls,
+      )}
+      title={
+        verification === "unverified"
+          ? "The knowledge base had nothing backing or contradicting this claim. Not verified is not false."
+          : "Evidence verdict from the knowledge-base pass"
+      }
+    >
+      <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
+      {VERIFICATION_LABELS[verification]}
     </span>
   );
 }
@@ -33,17 +66,38 @@ export function AdvisoryTag() {
 const REVIEW_STATUS: Record<string, { cls: string; label: string }> = {
   analyzing: { cls: "bg-pencil-wash text-pencil", label: "Analyzing" },
   in_review: { cls: "bg-ink/5 text-ink border border-line", label: "In review" },
-  changes_requested: { cls: "bg-redpen-wash text-redpen", label: "Changes requested" },
+  changes_requested: { cls: "bg-redpen-wash text-redpen", label: "Sent back for fixes" },
   ready_for_approval: { cls: "bg-cite-wash text-cite", label: "Ready for approval" },
   approved: { cls: "bg-greenink-wash text-greenink", label: "Approved" },
 };
 
 export function StatusPill({ status }: { status: string }) {
-  const s = REVIEW_STATUS[status] ?? REVIEW_STATUS.in_review;
-  return (
-    <span className={clsx("inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-medium", s.cls)}>
-      {s.label}
+  const known = REVIEW_STATUS[status];
+  return known ? (
+    <span className={clsx("inline-flex items-center rounded-full px-2.5 py-0.5 text-[12px] font-medium", known.cls)}>
+      {known.label}
     </span>
+  ) : (
+    // An honest neutral state: the desk never guesses an unknown status back
+    // into a familiar-looking one.
+    <span
+      className="inline-flex items-center rounded-full bg-ink/5 px-2.5 py-0.5 text-[12px] font-medium text-ink border border-line"
+      title="Status this desk does not have a label for"
+    >
+      Status: {status}
+    </span>
+  );
+}
+
+/** Vocabulary for states the review service returns. */
+export const STATUS_VERBS: Record<string, string> = {
+  ...Object.fromEntries(Object.entries(REVIEW_STATUS).map(([k, v]) => [k, v.label])),
+};
+
+/** Loading placeholder for fetch-driven read screens. */
+export function SkeletonRow() {
+  return (
+    <div className="h-9 animate-pulse rounded-md border border-line bg-ink/5" />
   );
 }
 
