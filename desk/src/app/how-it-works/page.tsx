@@ -3,7 +3,7 @@ import Link from "next/link";
 import { Wordmark } from "@/components/sketch";
 
 export const metadata: Metadata = {
-  title: "How this review works — BrandProof",
+  title: "How this review works — Inkloom",
   description: "What is automated, what is simulated, and what the AI is never allowed to do.",
 };
 
@@ -44,13 +44,18 @@ export default function HowItWorksPage() {
           things the AI is never allowed to do — at any confidence score.
         </p>
 
-        <Block title="What the analysis pass is, in this demo">
+        <Block title="What the review pass runs">
           <p>
-            Paste copy and it walks four steps: extract the text, anchor each sentence to your knowledge
-            base, check claims against the guideline set, then draft intent-preserving rewrites. In this
-            frontend-only build the pass runs on a small open, hand-written rule set (superlatives,
-            unanchored numbers, physiology claims, named competitors, absolutes, uncertified eco terms)
-            so you can see the whole loop live. It is a faithful shape-check, not the trained model.
+            The desk has two lanes, and neither one fakes a model behind your back.{" "}
+            <span className="font-medium text-ink">Engine lane</span> — with the governance engine
+            running, the pass is fully real: six deterministic, explicit rules; retrieval against
+            your guidelines, fact sheet, terminology and approved assets; and evidence anchors that
+            tie claims to fact-sheet entries, so a verified flag is verified and nothing else is
+            allowed to sound like one.{" "}
+            <span className="font-medium text-ink">Sample lane</span> — without the engine, the desk
+            runs the same review loop on a seeded, fictional workspace, with every simulated surface
+            labeled as sample data. It is a faithful shape-check, never a stand-in pretending to be
+            the trained model.
           </p>
         </Block>
 
@@ -64,12 +69,12 @@ export default function HowItWorksPage() {
           </p>
         </Block>
 
-        <Block title="What is simulated in this demo">
+        <Block title="What is simulated in the sample lane">
           <ul className="mt-2 list-disc space-y-1.5 pl-5">
-            <li>Sign-in and role switching (email code, RBAC labels).</li>
+            <li>Sign-in (the demo code is shown openly at the sign-in screen).</li>
             <li>The seeded workspace — a fictional brand, Meridian Coffee, with its reviews pre-drawn.</li>
-            <li>The review model pass (four visible steps instead of a live model call).</li>
-            <li>Persistence: the demo resets when you reload; nothing is stored server-side.</li>
+            <li>Persistence in that lane: everything resets on reload; nothing is stored server-side.</li>
+            <li>The trained review model — the Round&nbsp;1 plan&apos;s next layer, not hidden behind a lookalike.</li>
           </ul>
         </Block>
 
@@ -94,12 +99,13 @@ export default function HowItWorksPage() {
           </p>
         </Block>
 
-        <Block title="The stack behind the demo">
+        <Block title="The stack behind the desk">
           <p>
-            Next.js 15 (App Router, React 19, TypeScript strict), Tailwind CSS v4, a typed demo data layer
-            with no backend, and no UI kit beyond a small native-HTML set. The planned pairing stays as
-            written in Round&nbsp;1: FastAPI services, PostgreSQL with pgvector retrieval, Supabase auth and
-            storage, deployed on Vercel.
+            Next.js 15 (App Router, React 19, TypeScript strict), Tailwind CSS v4, and a typed data
+            layer that swaps cleanly between the sample lane and live engine hydration — RBAC on the
+            desk mirrors the engine&apos;s permission matrix. The real pairing, as written in
+            Round&nbsp;1: a local FastAPI governance engine (already wired into this build), and
+            PostgreSQL with pgvector retrieval, Supabase auth and storage, deployed on Vercel.
           </p>
         </Block>
 

@@ -7,8 +7,8 @@ type Variant = "primary" | "approve" | "outline" | "ghost" | "danger";
 type Size = "sm" | "md";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-ink text-paper border border-ink hover:bg-[#2A3A59] active:bg-ink",
-  approve: "bg-greenink text-white border border-greenink hover:bg-[#175439] active:bg-greenink",
+  primary: "bg-ink text-paper border border-ink hover:bg-ink/85 active:bg-ink",
+  approve: "bg-greenink text-white border border-greenink hover:bg-greenink/85 active:bg-greenink",
   outline: "bg-sheet text-ink border border-line-strong hover:border-ink active:border-ink",
   ghost: "text-ink-soft border border-transparent hover:text-ink hover:bg-ink/5",
   danger: "text-redpen border border-transparent hover:bg-redpen-wash",
@@ -32,7 +32,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         type={type ?? "button"}
         className={clsx(
           "inline-flex items-center justify-center gap-1.5 rounded-md font-medium",
-          "transition-colors disabled:cursor-not-allowed disabled:opacity-40",
+          "transition-[background-color,border-color,color,box-shadow,transform] duration-200",
+          "[transition-timing-function:var(--ease-settle)] active:scale-[0.98]",
+          "disabled:cursor-not-allowed disabled:opacity-40",
           variants[variant],
           sizes[size],
           className,
