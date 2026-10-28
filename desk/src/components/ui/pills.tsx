@@ -3,8 +3,8 @@ import { VERIFICATION_LABELS, type Verification } from "@/lib/types";
 
 export function SeverityPill({ severity }: { severity: "high" | "medium" | "low" }) {
   const styles = {
-    high: { cls: "bg-redpen-wash text-redpen", label: "High" },
-    medium: { cls: "bg-pencil-wash text-pencil", label: "Medium" },
+    high: { cls: "bg-flag-wash text-flag", label: "High" },
+    medium: { cls: "bg-amber-wash text-amber", label: "Medium" },
     low: { cls: "bg-cite-wash text-cite", label: "Low" },
   }[severity];
   return (
@@ -27,15 +27,15 @@ export function ConfidenceTag({ confidence }: { confidence: number }) {
 }
 
 /**
- * The evidence verdict on a finding, in the vocabulary the desk teaches:
+ * The evidence verdict on a finding, in the vocabulary the book teaches:
  * Unverified means the knowledge base had nothing either way — never false.
  */
 export function VerificationPill({ verification }: { verification: Verification }) {
   const styles: Record<Verification, { cls: string }> = {
-    supported: { cls: "bg-greenink-wash text-greenink" },
-    contradicted: { cls: "bg-redpen-wash text-redpen" },
-    unverified: { cls: "bg-pencil-wash text-pencil" },
-    inconclusive: { cls: "bg-pencil-wash text-pencil" },
+    supported: { cls: "bg-keep-wash text-keep" },
+    contradicted: { cls: "bg-flag-wash text-flag" },
+    unverified: { cls: "bg-amber-wash text-amber" },
+    inconclusive: { cls: "bg-amber-wash text-amber" },
   };
   return (
     <span
@@ -57,18 +57,18 @@ export function VerificationPill({ verification }: { verification: Verification 
 
 export function AdvisoryTag() {
   return (
-    <span className="font-hand text-[17px] leading-none text-pencil" title="No house rule anchors this — a human decides">
+    <span className="font-hand text-[17px] leading-none text-amber" title="No house rule anchors this — a human decides">
       advisory, uncited
     </span>
   );
 }
 
 const REVIEW_STATUS: Record<string, { cls: string; label: string }> = {
-  analyzing: { cls: "bg-pencil-wash text-pencil", label: "Analyzing" },
+  analyzing: { cls: "bg-amber-wash text-amber", label: "Analyzing" },
   in_review: { cls: "bg-ink/5 text-ink border border-line", label: "In review" },
-  changes_requested: { cls: "bg-redpen-wash text-redpen", label: "Sent back for fixes" },
+  changes_requested: { cls: "bg-flag-wash text-flag", label: "Sent back for fixes" },
   ready_for_approval: { cls: "bg-cite-wash text-cite", label: "Ready for approval" },
-  approved: { cls: "bg-greenink-wash text-greenink", label: "Approved" },
+  approved: { cls: "bg-keep-wash text-keep", label: "Approved" },
 };
 
 export function StatusPill({ status }: { status: string }) {
@@ -104,7 +104,7 @@ export function SkeletonRow() {
 export function Stamp({ label, tone = "green", tilt = -3 }: { label: string; tone?: "green" | "red"; tilt?: number }) {
   return (
     <span
-      className={clsx("stamp inline-block text-[13px] font-semibold", tone === "green" ? "text-greenink" : "text-redpen")}
+      className={clsx("stamp inline-block text-[13px] font-semibold", tone === "green" ? "text-keep" : "text-flag")}
       style={{ transform: `rotate(${tilt}deg)` }}
     >
       {label}

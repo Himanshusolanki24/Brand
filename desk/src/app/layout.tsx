@@ -2,18 +2,19 @@ import type { Metadata, Viewport } from "next";
 import { Caveat, IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Serif } from "next/font/google";
 import "./globals.css";
 
-// Three IBM Plex registers, like a proofing room: sans runs the interface,
-// serif is the reviewed copy, mono is machine truth. Hand annotations stay.
-const plexSans = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-plex-sans",
-});
-
+// The Brand Book's four registers: serif is the book itself (display and
+// reviewed copy), sans runs the interface, mono is machine truth, Caveat is
+// the hand in the margin.
 const plexSerif = IBM_Plex_Serif({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-plex-serif",
+});
+
+const plexSans = IBM_Plex_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-plex-sans",
 });
 
 const plexMono = IBM_Plex_Mono({
@@ -40,7 +41,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#F5F6F4",
+  themeColor: "#F8F4EC",
 };
 
 export default function RootLayout({
@@ -51,7 +52,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${plexSans.variable} ${plexSerif.variable} ${plexMono.variable} ${caveat.variable} antialiased`}
+        className={`${plexSerif.variable} ${plexSans.variable} ${plexMono.variable} ${caveat.variable} antialiased`}
       >
         <a href="#app-main" className="skip-link">
           Skip to content
