@@ -3,20 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import {
-  ArrowUpRightSquare,
-  BookOpen,
-  ClipboardCheck,
-  FileText,
-  Home,
-  Info,
-  Network,
-  PenLine,
-  type LucideIcon,
-} from "lucide-react";
+import { BookOpen, FileText, Info, PenLine, Stamp, type LucideIcon } from "lucide-react";
 import { unresolved, useDemo } from "@/lib/store";
 import { ROLE_LABELS, type Role } from "@/lib/types";
-import { Wordmark } from "@/components/sketch";
+import { Wordmark } from "@/components/wordmark";
 
 function NavLink({
   href,
@@ -44,7 +34,7 @@ function NavLink({
       <Icon size={15.5} strokeWidth={2} aria-hidden />
       {label}
       {typeof count === "number" && count > 0 ? (
-        <span className="ml-auto rounded-full bg-redpen-wash px-1.5 py-px text-[11px] font-semibold text-redpen">
+        <span className="ml-auto rounded-full bg-flag-wash px-1.5 py-px text-[11px] font-semibold text-flag">
           {count}
         </span>
       ) : null}
@@ -54,7 +44,7 @@ function NavLink({
 
 function GroupLabel({ children }: { children: string }) {
   return (
-    <p className="px-3 pb-1 pt-4 text-[11.5px] font-medium text-ink-soft/70">
+    <p className="px-3 pb-1 pt-4 font-mono text-[10.5px] font-medium uppercase tracking-[0.14em] text-ink-soft/70">
       {children}
     </p>
   );
@@ -68,26 +58,23 @@ export function Sidebar() {
   const waiting = state.approvals.filter((a) => a.state === "waiting").length;
 
   const links = [
-    { href: "/app", label: "Dashboard", icon: Home },
-    { href: "/app/reviews", label: "Reviews", icon: FileText, count: openFlags },
-    { href: "/app/reviews/new", label: "New review", icon: PenLine },
-    { href: "/app/approvals", label: "Approvals", icon: ClipboardCheck, count: waiting },
+    { href: "/app", label: "The Imprint", icon: BookOpen },
+    { href: "/app/submit", label: "Submit a piece", icon: PenLine },
+    { href: "/app/manuscripts", label: "Manuscripts", icon: FileText, count: openFlags },
+    { href: "/app/press", label: "The Press", icon: Stamp, count: waiting },
   ];
   const truthLinks = [
-    { href: "/app/dna", label: "Brand DNA", icon: BookOpen },
-    { href: "/app/trust-graph", label: "Trust Graph", icon: Network },
-    { href: "/app/proposals", label: "Learning proposals", icon: ArrowUpRightSquare },
     { href: "/how-it-works", label: "How this review works", icon: Info },
   ];
 
   return (
     <>
-      <aside className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-line bg-desk px-3 py-5 md:flex">
+      <aside className="sticky top-0 hidden h-screen w-[252px] shrink-0 flex-col border-r border-line bg-desk px-3 py-5 md:flex">
         <Link href="/" className="px-2.5">
           <Wordmark className="text-[19px]" />
         </Link>
         <nav className="mt-4 flex flex-1 flex-col" aria-label="Workspace">
-          <GroupLabel>Pipeline</GroupLabel>
+          <GroupLabel>The book</GroupLabel>
           <div className="flex flex-col gap-0.5">
             {links.map((l) => (
               <NavLink key={l.href} {...l} active={pathname === l.href} />
@@ -114,19 +101,19 @@ export function Sidebar() {
           >
             <span
               aria-hidden
-              className={clsx("h-1.5 w-1.5 shrink-0 rounded-full", session ? "bg-greenink" : "bg-pencil")}
+              className={clsx("h-1.5 w-1.5 shrink-0 rounded-full", session ? "bg-keep" : "bg-amber")}
             />
             <span
               className={clsx(
                 "text-[11.5px] font-semibold tracking-wide",
-                session ? "text-greenink" : "text-pencil",
+                session ? "text-keep" : "text-amber",
               )}
             >
               {session ? "Live desk" : "Sample desk"}
             </span>
           </div>
           <label className="block pb-1 text-[11.5px] font-medium text-ink-soft/70" htmlFor="role">
-            {session ? "your seat" : "demo role"}
+            {session ? "your seat" : "demo seat"}
           </label>
           {session ? (
             <div className="rounded-md border border-line-strong bg-sheet px-2.5 py-2">
