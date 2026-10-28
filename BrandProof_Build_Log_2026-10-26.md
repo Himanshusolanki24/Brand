@@ -705,3 +705,55 @@ none was requested). These are stated decisions, not omissions.
 *Logged by the build agent (OpenCode + GLM, 2026-10-26). The workspace demo, the
 disclosure page, and this log are consistent with each other by design — if the
 judges ask, the answer is on the page.*
+
+---
+
+## 17. Frontend v2 — "The Brand Book" rebuild (2026-10-29)
+
+**Decision.** The v1 desk (porcelain drafting room) was replaced wholesale per the
+builder's call: new IA, core-flow scope, warm "Brand Book" identity. Before removal,
+the entire v1 tree was preserved on the `legacy-desk` branch (cut at `c46d38c`), so
+nothing was lost — main simply no longer carries it.
+
+**What carried over untouched.** The data layer is the wiring, not the design:
+`lib/api.ts` (engine client), `lib/store.tsx` (reducer + lane-switching dispatch +
+store-borne demo analysis settle), `lib/permits.ts` (fail-closed RBAC mirror),
+`lib/types.ts`, `lib/seed.ts` (Meridian fixtures), `lib/analyze.ts` (demo runner),
+and `components/motion.tsx` (Reveal + Tagline). Every behavioral truth from v1 was
+restated in the new surfaces, not re-invented.
+
+**New IA** (old → new):
+- `/` → **The Cover** — title page, tagline activation, three pillars, the four
+  nevers, the two-lane truth block.
+- `/signin` → **open the book** — same logic (email → code `0007` → engine attempt
+  → fallback sample lane), new skin.
+- `/app` → **The Imprint** — masthead stats, in-edition manuscripts, standards page
+  with the clarity radar (printed plate, no sketch dependency) and ratifiable
+  amendments gated by `can(seat, "ratify_proposal")`.
+- `/app/submit` — intake, ported logic (product lane posts to `/reviews/analyze`,
+  demo lane constructs the analyzing review with `policyVersion` pinned).
+- `/app/manuscripts` + `/app/manuscripts/[id]` → **The Reader** — galley left with
+  proofing marks, marginalia right with every verdict/evidence/citation behavior.
+  Send gate now checks BOTH the 409 mirror (open HIGH blocks) and the RBAC mirror
+  (`send_for_approval` — admins sign instead of send), each with an honest reason.
+- `/app/press` — sign (typed name must match the assigned approver), return with
+  note, manifest export (`export_manifest` permit).
+- `/how-it-works` — restyled, truthful copy preserved verbatim. `not-found.tsx`,
+  `icon.svg` (loom mark) rebound.
+
+**Identity tokens** (globals.css): paper `#F8F4EC`, desk `#EFE7D9`, sheet
+`#FFFDF8`, ink `#23180F`, vermilion flags `#A63A2B`, forest approvals `#2E6B4F`,
+indigo citations `#3A5BA0`, amber severity `#8A611C`; IBM Plex Serif now carries
+display + reviewed copy (sans = UI, mono = machine truth, Caveat = margin hand).
+Deleted: `sketch.tsx`, `issue-card.tsx`, `clarity-radar.tsx` (replaced by
+`components/app/radar.tsx`), `Wordmark` now pure type (`components/wordmark.tsx`).
+
+**Removed surfaces by scope:** `/app/dna`, `/app/trust-graph`, `/app/proposals*`,
+`/app/reviews*`, `/app/approvals`, `/app/intake`, `/app/guidelines` — the
+proposals' ratify action moved onto the Imprint; approvals became the Press.
+
+**Gates & verification.** `tsc --noEmit` 0 · `eslint` 0 · `next build` 0 (10
+routes) · prod smoke on `:3117` (all routes 200, branded 404, engine login 200) ·
+content probe: rv1 renders 6 marks / 6 marginalia / 6 verdict rows / 11 citations.
+Engine untouched, pytest 26 green. Pushed as five chunked commits
+(`3e7fce5`…`7da8e69`), fast-forward only.
