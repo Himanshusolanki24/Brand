@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Wordmark } from "@/components/sketch";
+import { Wordmark } from "@/components/wordmark";
 
 export default function NotFound() {
   return (
@@ -9,7 +9,7 @@ export default function NotFound() {
         This page was never proved.
       </h1>
       <p className="mt-3 text-base text-pretty text-ink-soft">
-        The desk keeps every decision on the record, but this address does not exist. Nothing was
+        The book keeps every decision on the record, but this address does not exist. Nothing was
         invented to fill the gap.
       </p>
       <div className="mt-8 flex flex-wrap gap-4">
@@ -17,7 +17,7 @@ export default function NotFound() {
           href="/"
           className="inline-flex h-11 items-center rounded-md bg-ink px-5 text-base font-semibold text-paper transition-[background-color,transform] duration-300 [transition-timing-function:var(--ease-settle)] hover:bg-ink/85 active:scale-[0.98]"
         >
-          Back to the desk
+          Back to the cover
         </Link>
         <Link
           href="/how-it-works"
@@ -26,7 +26,7 @@ export default function NotFound() {
           How this review works
         </Link>
       </div>
-      <p className="mt-10 font-hand text-lg text-pencil">the paper is blank for a reason.</p>
+      <p className="mt-10 font-hand text-lg text-amber">the page is blank for a reason.</p>
     </main>
   );
 }

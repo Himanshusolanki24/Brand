@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Wordmark } from "@/components/sketch";
+import { Wordmark } from "@/components/wordmark";
 
 export const metadata: Metadata = {
   title: "How this review works — Inkloom",
@@ -17,7 +17,7 @@ const NEVER = [
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="border-t border-line pt-8">
-      <h2 className="font-display text-[20px] font-semibold tracking-tight">{title}</h2>
+      <h2 className="font-display text-[21px] font-semibold tracking-tight">{title}</h2>
       <div className="mt-3 max-w-2xl text-[14.5px] leading-relaxed text-ink-soft">{children}</div>
     </section>
   );
@@ -31,12 +31,12 @@ export default function HowItWorksPage() {
           <Wordmark className="text-[18px]" />
         </Link>
         <Link href="/app" className="text-[13.5px] font-medium text-ink hover:text-cite">
-          Open the workspace
+          Open the book
         </Link>
       </header>
 
       <main className="mx-auto max-w-3xl space-y-10 px-6 pb-24 pt-14">
-        <h1 className="font-display text-[34px] font-bold leading-tight tracking-tight">
+        <h1 className="font-display text-[36px] font-bold leading-tight tracking-tight">
           How this review works.
         </h1>
         <p className="-mt-6 max-w-2xl text-[15.5px] leading-relaxed text-ink-soft">
@@ -82,7 +82,7 @@ export default function HowItWorksPage() {
           <ul className="mt-2 space-y-2">
             {NEVER.map((n) => (
               <li key={n} className="flex gap-2.5 text-[14.5px] leading-relaxed text-ink-soft">
-                <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-redpen" />
+                <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-flag" />
                 <span>{n}</span>
               </li>
             ))}
@@ -114,7 +114,7 @@ export default function HowItWorksPage() {
           improvements all trace to the Round&nbsp;1 plan.
           <br />
           <Link href="/app" className="font-medium text-cite hover:underline">
-            Back to the workspace
+            Back to the book
           </Link>
         </p>
       </main>

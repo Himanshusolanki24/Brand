@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import clsx from "clsx";
-import { Wordmark } from "@/components/sketch";
+import { Wordmark } from "@/components/wordmark";
 import { Button } from "@/components/ui/button";
 import { api, saveSession } from "@/lib/api";
 
@@ -32,7 +32,7 @@ export default function SignInPage() {
       return;
     }
     // The engine seats you with your real name, role, and workspace when it
-    // answers; otherwise the same code opens the self-contained demo desk.
+    // answers; otherwise the same code opens the self-contained sample book.
     setConnecting(true);
     try {
       const session = await api.login(email);
@@ -51,8 +51,8 @@ export default function SignInPage() {
         <p>
           <Wordmark className="text-[20px]" />
         </p>
-        <h1 className="mt-5 font-display text-[22px] font-semibold tracking-tight">
-          {stage === "email" ? "Sign in to your desk" : "Enter the code"}
+        <h1 className="mt-5 font-display text-[24px] font-semibold leading-tight tracking-tight">
+          {stage === "email" ? "Open the book" : "The code, please"}
         </h1>
         <p className="mt-1 text-[13.5px] text-ink-soft">
           {stage === "email"
@@ -80,7 +80,7 @@ export default function SignInPage() {
               className="h-10 w-full rounded-md border border-line-strong bg-sheet px-3 text-sm"
             />
             {!emailOk && email.length > 0 ? (
-              <p className="pt-1.5 text-[12px] text-pencil">A full email, please — any address works in the demo.</p>
+              <p className="pt-1.5 text-[12px] text-amber">A full email, please — any address works in the demo.</p>
             ) : null}
             <p className="pt-1.5 text-[12px] text-ink-soft">
               Seats on a live desk: priya@, ravi@, maya@meridiancoffee.com ·
@@ -107,11 +107,11 @@ export default function SignInPage() {
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/[^\d]/g, "").slice(0, 4))}
               placeholder="0007"
-              className="h-10 w-full rounded-md border border-line-strong bg-sheet px-3 text-sm tabular-nums"
+              className="h-10 w-full rounded-md border border-line-strong bg-sheet px-3 font-mono text-sm tabular-nums"
             />
-            {error ? <p className="pt-1.5 text-[12px] text-redpen">{error}</p> : null}
+            {error ? <p className="pt-1.5 text-[12px] text-flag">{error}</p> : null}
             <Button type="submit" disabled={code.length < 4 || connecting} className="mt-4 w-full">
-              {connecting ? "Seating you…" : "Step onto the desk"}
+              {connecting ? "Seating you…" : "Open the book"}
             </Button>
           </form>
         )}
