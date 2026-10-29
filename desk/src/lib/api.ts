@@ -17,8 +17,15 @@ import type {
 } from "./types";
 import type { DemoState } from "./types";
 
-export const ENGINE_URL =
-  process.env.NEXT_PUBLIC_ENGINE_URL?.replace(/\/$/, "") || "http://localhost:8900";
+export const ENGINE_URL = (() => {
+  const configured = process.env.NEXT_PUBLIC_ENGINE_URL;
+  // Unset → the local two-process default (engine on :8900) for `next dev`.
+  // Set to an empty string → same-origin: the browser calls /api/… on the
+  // deployment domain and Vercel's rewrite routes it to the internal engine
+  // service. Never point a deployment at localhost — the visitor's machine
+  // has no engine running; the desk would fall back to the sample lane.
+  return configured === undefined ? "http://localhost:8900" : configured.replace(/\/$/, "");
+})();
 
 export interface EngineUser {
   id: string;
