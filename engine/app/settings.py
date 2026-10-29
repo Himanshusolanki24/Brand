@@ -37,6 +37,16 @@ class Settings(BaseSettings):
     embedding_provider: str = "local"
     openai_api_key: SecretStr | None = None
     openai_embedding_model: str = "text-embedding-3-small"
+    # Semantic review (Layer 2). "none" = deterministic-only — the default, no
+    # keys, no network. "openrouter" enables the grounded model pass; the
+    # engine degrades gracefully to Layer 1 if the call fails or times out.
+    llm_provider: str = "none"  # none | openrouter (OpenAI-compatible)
+    openrouter_api_key: SecretStr | None = None
+    openrouter_base_url: str = "https://openrouter.ai/api/v1"
+    llm_model: str = "google/gemma-4-31b-it:free"
+    llm_temperature: float = 0.2
+    llm_timeout_seconds: float = 30.0
+    llm_max_issues: int = 6
     # JWT — HS256 demo token; production Supabase OTP adapter swaps in here.
     jwt_secret: SecretStr = SecretStr("brandproof-dev-secret-do-not-use-in-prod")
     jwt_algorithm: str = "HS256"
