@@ -63,6 +63,37 @@ export function AdvisoryTag() {
   );
 }
 
+/**
+ * Where a finding came from. The engine stamps every issue with its agent;
+ * the desk surfaces it so a model finding never masquerades as a rule hit.
+ * Advisory findings carry no tag here — AdvisoryTag already says what they are.
+ */
+export function SourceTag({ agent }: { agent: string }) {
+  if (agent === "policy_checks") {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2 py-0.5 text-[12px] font-semibold text-ink-soft"
+        title="Deterministic rule pass — pure pattern logic, no model involved"
+      >
+        <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
+        rule pass
+      </span>
+    );
+  }
+  if (agent.startsWith("llm:")) {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full bg-cite-wash px-2 py-0.5 text-[12px] font-semibold text-cite"
+        title={`Grounded semantic review — model ${agent.slice(4)}; every finding must cite a clause or ride as advisory`}
+      >
+        <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-current" />
+        semantic · {agent.slice(4)}
+      </span>
+    );
+  }
+  return null;
+}
+
 const REVIEW_STATUS: Record<string, { cls: string; label: string }> = {
   analyzing: { cls: "bg-amber-wash text-amber", label: "Analyzing" },
   in_review: { cls: "bg-ink/5 text-ink border border-line", label: "In review" },

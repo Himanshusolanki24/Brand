@@ -9,7 +9,7 @@ import { bySeverity, fmtDate, unresolved, useDemo } from "@/lib/store";
 import { api } from "@/lib/api";
 import { can } from "@/lib/permits";
 import { analyzeDraft } from "@/lib/analyze";
-import { StatusPill, Stamp, SeverityPill, ConfidenceTag, AdvisoryTag, VerificationPill } from "@/components/ui/pills";
+import { StatusPill, Stamp, SeverityPill, ConfidenceTag, AdvisoryTag, VerificationPill, SourceTag } from "@/components/ui/pills";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import type { Issue } from "@/lib/types";
@@ -223,6 +223,7 @@ function MarginaliaNote({
         <SeverityPill severity={issue.severity} />
         <ConfidenceTag confidence={issue.confidence} />
         {issue.verification ? <VerificationPill verification={issue.verification} /> : null}
+        <SourceTag agent={issue.agent} />
         {issue.citation === null && !resolved ? <AdvisoryTag /> : null}
       </div>
 
