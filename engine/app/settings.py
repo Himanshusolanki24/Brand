@@ -9,8 +9,9 @@ anywhere with no external dependencies and no AI provider keys.
 import os
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
-from pydantic import Field, SecretStr
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENGINE_ROOT = Path(__file__).resolve().parent.parent
@@ -59,6 +60,27 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:3000", "http://127.0.0.1:3000"],
     )
+
+    @field_validator("cors_origins", mode="before")
+    @classmethod
+    def _normalize_cors_origins(cls, value: Any) -> Any:
+        """Accept a JSON array, a bare origin, or a comma-separated list.
+
+        Env lists are JSON by pydantic convention, but a deployment dashboard
+        can deliver the value with the brackets stripped or typographic
+        quotes — a crash at boot is the wrong response to a string. Any
+        string form is normalized here; a real list passes through.
+        """
+        if not isinstance(value, str):
+            return value
+        raw = value.strip()
+        if raw.startswith("[") and raw.endswith("]"):
+            raw = raw[1:-1]
+        origins = [
+            item.strip().strip("\"'“”‘’").strip()
+            for item in raw.split(",")
+        ]
+        return [item for item in origins if item]
     deterministic_factory_seed: int = 42
 
 

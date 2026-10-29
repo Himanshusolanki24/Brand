@@ -239,3 +239,22 @@ async def test_pipeline_stays_deterministic_without_provider(
     assert resp.status_code == 201
     agents = [i["agent"] for i in resp.json()["issues"]]
     assert not any(a.startswith("llm:") for a in agents)
+
+
+# ---------------------------------------------------------------------------
+# Settings robustness — the boot-crash guard for dashboard-mangled env values.
+# ---------------------------------------------------------------------------
+
+
+def test_cors_env_forms_all_normalize() -> None:
+    json_form = Settings(cors_origins='["https://a.vercel.app"]')
+    bare = Settings(cors_origins="https://a.vercel.app")
+    csv = Settings(cors_origins="https://a.vercel.app, https://b.vercel.app")
+    curly = Settings(cors_origins="“https://a.vercel.app”")
+    pseudo = Settings(cors_origins="['https://a.vercel.app']")
+    assert json_form.cors_origins == ["https://a.vercel.app"]
+    assert bare.cors_origins == ["https://a.vercel.app"]
+    assert csv.cors_origins == ["https://a.vercel.app", "https://b.vercel.app"]
+    assert curly.cors_origins == ["https://a.vercel.app"]
+    assert pseudo.cors_origins == ["https://a.vercel.app"]
+    assert Settings().cors_origins[0] == "http://localhost:3000"  # default intact
