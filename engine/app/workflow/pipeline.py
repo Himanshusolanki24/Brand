@@ -237,8 +237,11 @@ async def stage_semantic_review(state: WorkflowState) -> None:
 
     Runs only when the LLM provider is configured; with no key there is no
     network call, no trace, and no failure — the engine stays deterministic-
-    only. Findings ride into the critic stage, which enforces the citation
-    gate on them exactly as on deterministic findings.
+    only. The model brief carries the desk's whole record at this point:
+    clauses, fact sheet, retrieved evidence, and every deterministic finding
+    already raised — so it decides with all agents' knowledge and adds depth
+    instead of repeating. Findings ride into the critic stage, which enforces
+    the citation gate on them exactly as on deterministic findings.
     """
 
     settings = get_settings()
@@ -252,6 +255,8 @@ async def stage_semantic_review(state: WorkflowState) -> None:
             facts=state.facts,
             guideline_version=state.guideline_version,
             settings=settings,
+            known_issues=list(state.issues),
+            evidence=state.evidence_hits,
         )
         state.issues.extend(issues)
         ctx.detail = meta

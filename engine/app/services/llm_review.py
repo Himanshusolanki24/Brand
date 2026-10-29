@@ -35,6 +35,7 @@ from app.contracts import (
     SectionInput,
     Severity,
 )
+from app.services.retrieval import RetrievedPassage
 from app.settings import Settings
 
 _SYSTEM_PROMPT = """\
@@ -50,6 +51,12 @@ Grounding contract (non-negotiable):
 - "quote" must be a verbatim substring (at least 8 characters) of the
   section body. Never paraphrase, never trim into the middle of a word.
 - Do not invent rules, facts, or figures. When unsure, do not flag.
+
+The brief carries the full desk record: the rule pass's FINDINGS ALREADY ON
+RECORD and the evidence the retrieval stage fetched. Never repeat a recorded
+span — your value is depth, not duplication. Use the retrieved evidence to
+judge whether a claim is supported; a checkable claim matching no approved
+fact is unsupported by definition.
 
 Respond with ONLY this JSON — no prose, no code fences:
 {"findings":[{"section":<section index:int>,"quote":"<verbatim>",
@@ -83,6 +90,61 @@ def _digest_content(sections: list[SectionInput]) -> str:
         f"SECTION {idx} — {section.heading}:\n{section.body[:_MAX_SECTION_CHARS]}"
         for idx, section in enumerate(sections)
     )
+
+
+def _digest_known(known_issues: list[Issue] | None) -> str:
+    """The rule pass's findings so far — the model adds depth, never repeats."""
+    if not known_issues:
+        return ""
+    lines = []
+    for issue in known_issues[:20]:
+        anchor = f"§{issue.citation.clause}" if issue.citation else "advisory"
+        lines.append(
+            f'- [{anchor}] "{issue.quote[:80]}" — {issue.severity.value} — {issue.headline}'
+        )
+    return "\n".join(lines)
+
+
+def _digest_evidence(evidence: dict[int, list[RetrievedPassage]] | None) -> str:
+    """What retrieval fetched per section — the model judges claims against it."""
+    if not evidence:
+        return ""
+    lines: list[str] = []
+    for idx in sorted(evidence):
+        for hit in evidence[idx][:4]:
+            lines.append(
+                f"SECTION {idx} — [{hit.source_id}] ({hit.source_type}, "
+                f"score {hit.combined_score:.2f}): {hit.text[:200]}"
+            )
+    return "\n".join(lines)
+
+
+def _normalized(text: str) -> str:
+    return " ".join("".join(ch if ch.isalnum() else " " for ch in text.lower()).split())
+
+
+def _is_duplicate(quote: str, section_id: str, known: list[Issue]) -> bool:
+    """True when a recorded finding already covers this span.
+
+    Containment either way, or ≥ 0.5 token overlap, in the same section —
+    decided in code so a chatty model cannot double-flag the desk.
+    """
+    norm = _normalized(quote)
+    tokens = set(norm.split())
+    for issue in known:
+        if issue.section_id != section_id:
+            continue
+        other = _normalized(issue.quote)
+        if norm in other or other in norm:
+            return True
+        other_tokens = set(other.split())
+        if (
+            tokens
+            and other_tokens
+            and len(tokens & other_tokens) / len(tokens | other_tokens) >= 0.5
+        ):
+            return True
+    return False
 
 
 def _extract_json(raw: str) -> dict[str, Any]:
@@ -222,15 +284,22 @@ async def semantic_findings(
     guideline_version: str,
     settings: Settings,
     client: Any = None,
+    known_issues: list[Issue] | None = None,
+    evidence: dict[int, list[RetrievedPassage]] | None = None,
 ) -> tuple[list[Issue], dict[str, Any]]:
     """One grounded model pass over the submitted content.
+
+    The brief carries the desk's whole record at this point in the pipeline:
+    the live clauses, the fact sheet, the evidence stage's retrieved passages,
+    and the deterministic findings already raised — the model decides with
+    everything the other agents saw, and must add depth rather than repeat.
 
     ``client`` accepts any OpenAI-compatible async chat client (structural —
     tests inject a stub; production builds an ``AsyncOpenAI`` pointed at the
     configured base URL). Returns ``(issues, meta)``. ``meta`` records what
-    happened for the audit trail: model, raw finding count, kept/dropped
-    breakdown, and any error. Never raises — a model-layer failure is a
-    trace, not an outage.
+    happened for the audit trail: model, raw finding count, kept/dropped/
+    duplicate breakdown, and any error. Never raises — a model-layer failure
+    is a trace, not an outage.
     """
     meta: dict[str, Any] = {
         "model": settings.llm_model,
@@ -239,6 +308,7 @@ async def semantic_findings(
         "kept_cited": 0,
         "kept_advisory": 0,
         "dropped": 0,
+        "duplicates": 0,
     }
     try:
         if client is None:
@@ -250,14 +320,35 @@ async def semantic_findings(
                 api_key=settings.openrouter_api_key.get_secret_value(),
                 timeout=settings.llm_timeout_seconds,
             )
-        user_prompt = (
-            f"GUIDELINE CLAUSES (cite these by their §number):\n"
-            f"{_digest_rules(rules)}\n\n"
-            f"APPROVED FACTS (a claim matching none of these is unsupported):\n"
-            f"{_digest_facts(facts)}\n\n"
-            f"CONTENT UNDER REVIEW:\n{_digest_content(sections)}\n\n"
-            f"Find semantic issues per your grounding contract."
-        )
+        parts = [
+            "GUIDELINE CLAUSES (cite these by their §number):",
+            _digest_rules(rules),
+            "",
+            "APPROVED FACTS (a claim matching none of these is unsupported):",
+            _digest_facts(facts),
+        ]
+        evidence_block = _digest_evidence(evidence)
+        if evidence_block:
+            parts += [
+                "",
+                "RETRIEVED EVIDENCE (approved passages fetched for this content):",
+                evidence_block,
+            ]
+        known_block = _digest_known(known_issues)
+        if known_block:
+            parts += [
+                "",
+                "FINDINGS ALREADY ON RECORD (the rule pass raised these — do not repeat them):",
+                known_block,
+            ]
+        parts += [
+            "",
+            "CONTENT UNDER REVIEW:",
+            _digest_content(sections),
+            "",
+            "Find semantic issues per your grounding contract.",
+        ]
+        user_prompt = "\n".join(parts)
         raw = await _chat(client, settings, user_prompt)
         findings = _extract_json(raw).get("findings", [])
         if not isinstance(findings, list):
@@ -265,6 +356,7 @@ async def semantic_findings(
         meta["raw"] = len(findings)
 
         agent_cited = f"llm:{_model_label(settings.llm_model)}"
+        record = known_issues or []
         issues: list[Issue] = []
         for item in findings:
             if len(issues) >= settings.llm_max_issues:
@@ -275,6 +367,9 @@ async def semantic_findings(
             )
             if issue is None:
                 meta["dropped"] += 1
+                continue
+            if _is_duplicate(issue.quote, issue.section_id, record):
+                meta["duplicates"] += 1
                 continue
             if issue.citation is None:
                 meta["kept_advisory"] += 1

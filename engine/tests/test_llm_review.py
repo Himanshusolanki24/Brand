@@ -15,6 +15,7 @@ import pytest
 
 from app.contracts import GuidelineSection, ProofFact, SectionInput
 from app.services.llm_review import _build_issue, semantic_findings
+from app.services.retrieval import RetrievedPassage
 from app.settings import Settings
 
 RULES = {
@@ -184,6 +185,45 @@ async def test_empty_response_is_recorded_not_raised() -> None:
     )
     assert issues == []
     assert meta["status"].startswith("error: ValueError")
+
+
+async def test_brief_carries_the_whole_record() -> None:
+    """The model sees every agent's knowledge: clauses, facts, evidence, findings."""
+    known = _build_issue(CITED, SECTIONS, RULES, "v2.3", "llm:stub-model", "stub-model")
+    assert known is not None
+    passage = RetrievedPassage(
+        chunk_id="ch-1", source_type="fact", source_id="f1", ordinal=0,
+        text="USDA Organic certified", dense_score=0.4, keyword_score=0.1,
+        combined_score=0.5,
+    )
+    raw = dict(CITED, quote="USDA Organic certified", section=1)
+    client = _stub_client(_payload([raw]))
+    issues, meta = await semantic_findings(
+        SECTIONS, RULES, FACTS, "v2.3", _settings(), client=client,
+        known_issues=[known], evidence={0: [passage]},
+    )
+    assert len(issues) == 1
+    assert meta["duplicates"] == 0
+    prompt = client.chat.completions.create.call_args.kwargs["messages"][1]["content"]
+    assert "FINDINGS ALREADY ON RECORD" in prompt
+    assert known.headline in prompt
+    assert "RETRIEVED EVIDENCE" in prompt
+    assert "(fact, score 0.50)" in prompt
+
+
+async def test_duplicate_of_recorded_finding_is_dropped() -> None:
+    known = _build_issue(CITED, SECTIONS, RULES, "v2.3", "llm:stub-model", "stub-model")
+    assert known is not None
+    raws = [
+        dict(CITED, headline="Same span again"),
+        dict(CITED, quote="best cold brew", headline="Token-overlap variant"),
+    ]
+    issues, meta = await semantic_findings(
+        SECTIONS, RULES, FACTS, "v2.3", _settings(),
+        client=_stub_client(_payload(raws)), known_issues=[known],
+    )
+    assert issues == []
+    assert meta["duplicates"] == 2
 
 
 # ---------------------------------------------------------------------------
