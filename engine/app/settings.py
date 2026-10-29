@@ -6,6 +6,7 @@ instance); the demo default is a zero-service SQLite file so the engine runs
 anywhere with no external dependencies and no AI provider keys.
 """
 
+import os
 from functools import lru_cache
 from pathlib import Path
 
@@ -13,7 +14,9 @@ from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 ENGINE_ROOT = Path(__file__).resolve().parent.parent
-STORAGE_DIR = ENGINE_ROOT / "storage"
+# Platforms with read-only app directories (e.g. Vercel serverless) point this
+# at a writable location — /tmp/storage — via BRANDPROOF_STORAGE_DIR.
+STORAGE_DIR = Path(os.environ.get("BRANDPROOF_STORAGE_DIR") or (ENGINE_ROOT / "storage"))
 MANIFEST_DIR = STORAGE_DIR / "manifests"
 
 
