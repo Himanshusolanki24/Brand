@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { BookOpen, FileText, Info, PenLine, Stamp, type LucideIcon } from "lucide-react";
+import { BookOpen, FileText, Info, PenLine, Sparkles, Stamp, type LucideIcon } from "lucide-react";
 import { unresolved, useDemo } from "@/lib/store";
 import { ROLE_LABELS, type Role } from "@/lib/types";
 import { Wordmark } from "@/components/wordmark";
@@ -65,6 +65,7 @@ export function Sidebar() {
   ];
   const truthLinks = [
     { href: "/how-it-works", label: "How this review works", icon: Info },
+    { href: "/ai-layer", label: "The AI layer", icon: Sparkles },
   ];
 
   return (

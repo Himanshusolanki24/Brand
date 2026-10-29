@@ -65,7 +65,10 @@ export default function HowItWorksPage() {
             retrieval over your guidelines, fact sheet, terminology and approved assets, with a
             GPT-4.1-mini fallback behind one adapter. Retrieval is a first-class step — the review scene
             cites the clause because the retrieved clause is part of the prompt, not because the model was
-            told to sound sure.
+            told to sound sure.{" "}
+            <Link href="/ai-layer" className="font-medium text-cite hover:underline">
+              The semantic pass now runs in the engine — its contract, inputs, and live status are on the AI layer page.
+            </Link>
           </p>
         </Block>
 
