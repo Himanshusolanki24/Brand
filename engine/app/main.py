@@ -38,11 +38,16 @@ def engine_health() -> dict[str, object]:
     """Human-auditable engine facts — the 'how it works' contract lives here."""
     settings = get_settings()
     provider = _provider_label()
+    llm_active = (
+        settings.llm_provider == "openrouter" and settings.openrouter_api_key is not None
+    )
     return {
         "status": "ok",
         "app": settings.app_name,
         "database": "postgresql+pgvector" if _is_postgres() else "sqlite (demo)",
         "embedding_provider": provider,
+        "llm_provider": "openrouter" if llm_active else "none",
+        "llm_model": settings.llm_model if llm_active else "none (deterministic only)",
         "deterministic_checks": 6,
         "risk_routing": "deterministic",
         "ai_provider_required": provider != "local",

@@ -295,5 +295,7 @@ class HealthInfo(APIModel):
     database: str
     embedding_provider: str
     embedding_model: str
+    llm_provider: str = "none"
+    llm_model: str = "none"
     deterministic_checks: int
     version: str

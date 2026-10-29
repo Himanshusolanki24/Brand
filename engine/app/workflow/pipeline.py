@@ -4,11 +4,14 @@ Blueprint architecture: NOT twelve autonomous agents. One orchestrator runs
 short, inspectable, mostly-deterministic stages in sequence and records an
 agent-run audit trail:
 
-  understanding → policy_checks → evidence → critic → risk_router
+  understanding → policy_checks → evidence → semantic_review → critic → risk_router
 
 Every stage works over the shared ``WorkflowState`` (the blueprint's
 "short-term memory"), producing contract objects the desk app and the Trust
-Graph can consume without translation.
+Graph can consume without translation. ``semantic_review`` (the grounded
+model pass) runs only when an LLM provider is configured — with no key the
+engine stays deterministic-only, and its findings face the same critic gate
+as every other finding's.
 """
 
 import time
@@ -52,7 +55,9 @@ from app.db.models import (
 from app.db.models import (
     TrustEdge as TrustEdgeRow,
 )
+from app.services.llm_review import semantic_findings
 from app.services.retrieval import RetrievedPassage, get_retriever
+from app.settings import get_settings
 
 # Retrieval gates: a passage must clear both to count as real evidence.
 _MIN_COMBINED_SCORE = 0.10
@@ -92,6 +97,7 @@ class _StageContext:
     def __init__(self, stage: str, state: WorkflowState) -> None:
         self.stage = stage
         self.state = state
+        self.detail: dict[str, Any] = {}
         self._started = 0.0
 
     async def __aenter__(self) -> "_StageContext":
@@ -100,7 +106,9 @@ class _StageContext:
 
     async def __aexit__(self, exc_type: object, exc: object, tb: object) -> None:
         duration = int((time.perf_counter() - self._started) * 1000)
-        self.state.traces.append(StageTrace(stage=self.stage, duration_ms=duration))
+        self.state.traces.append(
+            StageTrace(stage=self.stage, duration_ms=duration, detail=self.detail)
+        )
 
 
 def _stage(stage_name: str, state: WorkflowState) -> _StageContext:
@@ -224,6 +232,31 @@ async def stage_evidence(session: AsyncSession, state: WorkflowState) -> None:
             state.evidence_hits[idx] = hits
 
 
+async def stage_semantic_review(state: WorkflowState) -> None:
+    """Grounded model pass (Layer 2) — additive, best-effort, never required.
+
+    Runs only when the LLM provider is configured; with no key there is no
+    network call, no trace, and no failure — the engine stays deterministic-
+    only. Findings ride into the critic stage, which enforces the citation
+    gate on them exactly as on deterministic findings.
+    """
+
+    settings = get_settings()
+    if settings.llm_provider != "openrouter" or settings.openrouter_api_key is None:
+        return  # no key → Layer 1 only
+
+    async with _stage("semantic_review", state) as ctx:
+        issues, meta = await semantic_findings(
+            sections=state.request.sections,
+            rules=state.sections,
+            facts=state.facts,
+            guideline_version=state.guideline_version,
+            settings=settings,
+        )
+        state.issues.extend(issues)
+        ctx.detail = meta
+
+
 def _match_for_quote(
     quote: str, hits: list[RetrievedPassage], facts: list[ProofFact]
 ) -> tuple[RetrievedPassage | None, str]:
@@ -326,6 +359,7 @@ async def run_pipeline(session: AsyncSession, state: WorkflowState) -> Review:
 
     await stage_policy_checks(state)
     await stage_evidence(session, state)
+    await stage_semantic_review(state)
     await stage_critic(state)
     await stage_risk_router(state)
 
@@ -426,7 +460,11 @@ async def run_pipeline(session: AsyncSession, state: WorkflowState) -> Review:
         subject=review_id,
         meta={
             "stages": [
-                {"stage": t.stage, "duration_ms": t.duration_ms}
+                {
+                    "stage": t.stage,
+                    "duration_ms": t.duration_ms,
+                    **({"detail": t.detail} if t.detail else {}),
+                }
                 for t in state.traces
             ],
             "findings": len(issue_rows_out),
